@@ -42,6 +42,19 @@ task.spawn(function()
 	end
 end)
 
+-- Biến kiểm tra trạng thái thu nhỏ
+local isMinimized = false
+
+-- Cho phép kéo nút thu nhỏ
+toggleButton.Active = true
+toggleButton.Draggable = true
+
+-- Khi nhấn nút, ẩn hoặc hiện GUI chính
+toggleButton.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    mainFrame.Visible = not isMinimized
+end)
+
 -- 🖼️ Main Frame
 local mainFrame = Instance.new("Frame", gui)
 mainFrame.Size = UDim2.new(0, 500, 0, 300)
@@ -55,6 +68,66 @@ mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.ClipsDescendants = true
 Instance.new("UICorner", mainFrame)
+
+-- Viền trắng trong
+local innerBorder = Instance.new("Frame", mainFrame)
+innerBorder.Size = UDim2.new(1, 10, 1, 10)
+innerBorder.Position = UDim2.new(0, -5, 0, -5)
+innerBorder.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+innerBorder.BorderSizePixel = 0
+innerBorder.ZIndex = mainFrame.ZIndex - 1
+Instance.new("UICorner", innerBorder)
+
+-- Viền xanh dương ngoài cùng
+local outerBorder = Instance.new("Frame", gui)
+outerBorder.Size = UDim2.new(0, 520, 0, 320)
+outerBorder.Position = UDim2.new(0.5, -260, 0.5, -160)
+outerBorder.BackgroundColor3 = Color3.fromRGB(85, 170, 255)
+outerBorder.BorderSizePixel = 0
+outerBorder.ZIndex = mainFrame.ZIndex - 2
+Instance.new("UICorner", outerBorder)
+
+-- Thanh tab số 1 2 3
+local tabBar = Instance.new("Frame", mainFrame)
+tabBar.Size = UDim2.new(1, 0, 0, 20)
+tabBar.Position = UDim2.new(0, 0, 0, -20)
+tabBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+tabBar.BorderSizePixel = 0
+
+for i = 1, 3 do
+    local tabLabel = Instance.new("TextLabel", tabBar)
+    tabLabel.Size = UDim2.new(1/3, 0, 1, 0)
+    tabLabel.Position = UDim2.new((i-1)/3, 0, 0, 0)
+    tabLabel.Text = tostring(i)
+    tabLabel.Font = Enum.Font.GothamBold
+    tabLabel.TextSize = 14
+    tabLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+    tabLabel.BackgroundTransparency = 1
+end
+
+-- Kéo GUI khi nhấn vào viền trắng trong
+local draggingGui = false
+local dragOffset = Vector2.new()
+
+innerBorder.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingGui = true
+        dragOffset = input.Position - mainFrame.Position
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingGui = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingGui and input.UserInputType == Enum.UserInputType.MouseMovement then
+        mainFrame.Position = UDim2.new(0, input.Position.X - dragOffset.X, 0, input.Position.Y - dragOffset.Y)
+        outerBorder.Position = mainFrame.Position - UDim2.new(0, 10, 0, 10)
+    end
+end)
 
 -- ❌ Nút X
 local closeBtn = Instance.new("TextButton", mainFrame)
@@ -78,6 +151,24 @@ signature.Font = Enum.Font.GothamSemibold
 signature.TextSize = 14
 signature.TextColor3 = Color3.fromRGB(200, 200, 200)
 signature.TextTransparency = 0.2
+
+-- Thanh tab số
+local tabBar = Instance.new("Frame", mainFrame)
+tabBar.Size = UDim2.new(1, 0, 0, 20)
+tabBar.Position = UDim2.new(0, 0, 0, -20)
+tabBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+tabBar.BorderSizePixel = 0
+
+for i = 1, 3 do
+    local tabLabel = Instance.new("TextLabel", tabBar)
+    tabLabel.Size = UDim2.new(1/3, 0, 1, 0)
+    tabLabel.Position = UDim2.new((i-1)/3, 0, 0, 0)
+    tabLabel.Text = tostring(i)
+    tabLabel.Font = Enum.Font.GothamBold
+    tabLabel.TextSize = 14
+    tabLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+    tabLabel.BackgroundTransparency = 1
+end
 
 -- 📄 Tabs
 local tabHolder = Instance.new("Frame", mainFrame)
@@ -106,30 +197,51 @@ for i = 1, 3 do
 	tabs[i] = tab
 end
 
--- 🔁 Vuốt chuyển tab
+-- Lưu tab hiện tại và danh sách tab
 local currentTab = 1
-local dragging = false
-local dragStartX = 0
-UserInputService.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStartX = input.Position.X
-	end
+local tabs = {tab1, tab2, tab3}
+
+-- Hàm chuyển tab
+local function switchTab(index)
+    for i, tab in ipairs(tabs) do
+        tab.Visible = (i == index)
+    end
+    currentTab = index
+end
+
+-- Gắn sự kiện nhấn vào số tab
+for i = 1, 3 do
+    local tabLabel = tabBar:FindFirstChild(tostring(i))
+    if tabLabel then
+        tabLabel.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                switchTab(i)
+            end
+        end)
+    end
+end
+
+-- Vuốt để chuyển tab
+local swipeStartX = nil
+
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        swipeStartX = input.Position.X
+    end
 end)
-UserInputService.InputEnded:Connect(function(input)
-	if dragging then
-		local delta = input.Position.X - dragStartX
-		if math.abs(delta) > 50 then
-			if delta < 0 and currentTab < 3 then currentTab += 1
-			elseif delta > 0 and currentTab > 1 then currentTab -= 1 end
-		end
-		local goal = UDim2.new(-(currentTab - 1), 0, 0, 0)
-		TweenService:Create(tabHolder, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = goal}):Play()
-		dragging = false
-	end
-end)
-toggleButton.MouseButton1Click:Connect(function()
-	mainFrame.Visible = not mainFrame.Visible
+
+mainFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch and swipeStartX then
+        local deltaX = input.Position.X - swipeStartX
+        if math.abs(deltaX) > 50 then
+            if deltaX < 0 and currentTab < #tabs then
+                switchTab(currentTab + 1)
+            elseif deltaX > 0 and currentTab > 1 then
+                switchTab(currentTab - 1)
+            end
+        end
+        swipeStartX = nil
+    end
 end)
 
 -- 🧱 Hàm tạo nút
