@@ -1,10 +1,12 @@
+-- Các dịch vụ cần thiết
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
+-- Tạo GUI
 local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-gui.Name = "ESP"
+gui.Name = "LVDGODZ_GUI"
 gui.ResetOnSpawn = false
 
 -- Nút thu nhỏ
@@ -65,7 +67,7 @@ outerBorder.BorderSizePixel = 0
 outerBorder.ZIndex = 0
 Instance.new("UICorner", outerBorder)
 
--- Kéo GUI khi nhấn vào viền trắng trong
+-- Kéo GUI khi nhấn vào viền trắng
 local draggingGui = false
 local dragOffset = Vector2.new()
 
@@ -89,7 +91,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Hiện/ẩn GUI khi nhấn nút
+-- Toggle hiển thị GUI
 local isMinimized = false
 toggleButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
