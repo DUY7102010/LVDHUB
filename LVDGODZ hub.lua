@@ -97,38 +97,76 @@ for i = 1, 3 do
     end)
 end
 
--- ESP trái + người chơi
-local espButton = Instance.new("TextButton", tabFrames[2])
-espButton.Size = UDim2.new(0, 200, 0, 40)
-espButton.Position = UDim2.new(0, 20, 0, 20)
-espButton.Text = "ESP trái + người chơi"
-espButton.BackgroundColor3 = Color3.fromRGB(85, 170, 255)
-Instance.new("UICorner", espButton)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 
-local espEnabled = false
-espButton.MouseButton1Click:Connect(function()
-    espEnabled = not espEnabled
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-            if espEnabled then
-                local gui = Instance.new("BillboardGui", player.Character.Head)
-                gui.Name = "ESP"
-                gui.Size = UDim2.new(0, 100, 0, 40)
-                gui.AlwaysOnTop = true
-                local label = Instance.new("TextLabel", gui)
-                label.Size = UDim2.new(1, 0, 1, 0)
-                label.BackgroundTransparency = 1
-                label.Text = player.Name
-                label.TextColor3 = Color3.new(1, 1, 1)
-                label.TextScaled = true
-            else
-                local esp = player.Character.Head:FindFirstChild("ESP")
-                if esp then esp:Destroy() end
-            end
+local function createPlayerESP(player)
+    if player == LocalPlayer then return end
+    local character = player.Character
+    if not character or not character:FindFirstChild("Head") or not character:FindFirstChildOfClass("Humanoid") then return end
+    local head = character.Head
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+    if head:FindFirstChild("PlayerESP") then return end
+
+    local gui = Instance.new("BillboardGui")
+    gui.Name = "PlayerESP"
+    gui.Size = UDim2.new(0, 150, 0, 50)
+    gui.AlwaysOnTop = true
+    gui.StudsOffset = Vector3.new(0, 2.5, 0)
+    gui.Adornee = head
+    gui.Parent = head
+
+    local nameLabel = Instance.new("TextLabel", gui)
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextScaled = true
+    nameLabel.Font = Enum.Font.GothamBold
+
+    local infoLabel = Instance.new("TextLabel", gui)
+    infoLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    infoLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    infoLabel.TextStrokeTransparency = 0
+    infoLabel.TextScaled = true
+    infoLabel.Font = Enum.Font.Gotham
+
+    RunService.RenderStepped:Connect(function()
+        if character and character:FindFirstChild("HumanoidRootPart") and humanoid and humanoid.Health > 0 then
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local distance = hrp and (character.HumanoidRootPart.Position - hrp.Position).Magnitude or 0
+            infoLabel.Text = string.format("❤️ %.0f HP\n📏 %.0f m", humanoid.Health, distance)
+        else
+            gui:Destroy()
         end
-    end
+    end)
+end
+
+-- Tạo ESP cho tất cả người chơi hiện tại
+for _, player in pairs(Players:GetPlayers()) do
+    createPlayerESP(player)
+end
+
+-- Tạo ESP khi người chơi mới vào
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        wait(1)
+        createPlayerESP(player)
+    end)
 end)
 
+-- Tạo lại ESP khi nhân vật respawn
+for _, player in pairs(Players:GetPlayers()) do
+    player.CharacterAdded:Connect(function()
+        wait(1)
+        createPlayerESP(player)
+    end)
+end
 -- Auto bay nhặt trái
 local autoFruitButton = Instance.new("TextButton", tabFrames[2])
 autoFruitButton.Size = UDim2.new(0, 200, 0, 40)
