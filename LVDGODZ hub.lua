@@ -160,10 +160,14 @@ aimbotBtn.MouseButton1Click:Connect(function()
 	createAimbotGui()
 end)
 
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = game.Players.LocalPlayer
+
 local vipBtn = Instance.new("TextButton", tabFrames[3])
 vipBtn.Size = UDim2.new(0, 200, 0, 40)
 vipBtn.Position = UDim2.new(0, 20, 0, 70)
-vipBtn.Text = "🧭 Tìm server VIP"
+vipBtn.Text = "🧭 Chuyển đến server ít người nhất"
 vipBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 vipBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", vipBtn)
@@ -174,6 +178,9 @@ vipBtn.MouseButton1Click:Connect(function()
 	local cursor = ""
 	local lowestCount = math.huge
 	local bestServerId = nil
+	local fallbackServerId = nil
+
+	print("🔍 Đang tìm server ít người nhất...")
 
 	while true do
 		local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
@@ -184,15 +191,20 @@ vipBtn.MouseButton1Click:Connect(function()
 		end)
 
 		if not success then
-			warn("Không thể lấy dữ liệu server.")
+			warn("❌ Không thể lấy dữ liệu server.")
 			break
 		end
 
-		local data = game:GetService("HttpService"):JSONDecode(response)
+		local data = HttpService:JSONDecode(response)
 		for _, server in pairs(data.data) do
-			if server.id ~= currentJobId and server.playing < lowestCount then
-				lowestCount = server.playing
-				bestServerId = server.id
+			if server.id ~= currentJobId then
+				if server.playing < lowestCount then
+					lowestCount = server.playing
+					bestServerId = server.id
+				end
+				if not fallbackServerId then
+					fallbackServerId = server.id
+				end
 			end
 		end
 
@@ -204,8 +216,12 @@ vipBtn.MouseButton1Click:Connect(function()
 	end
 
 	if bestServerId then
-		game:GetService("TeleportService"):TeleportToPlaceInstance(placeId, bestServerId, game.Players.LocalPlayer)
+		print("✅ Đang chuyển đến server có " .. lowestCount .. " người chơi.")
+		TeleportService:TeleportToPlaceInstance(placeId, bestServerId, LocalPlayer)
+	elseif fallbackServerId then
+		print("⚠️ Không tìm được server ít nhất, đang chuyển đến server khác.")
+		TeleportService:TeleportToPlaceInstance(placeId, fallbackServerId, LocalPlayer)
 	else
-		warn("❌ Không tìm thấy server phù hợp.")
+		warn("❌ Không tìm thấy server nào khác.")
 	end
 end)
