@@ -105,194 +105,49 @@ mainFrame.InputEnded:Connect(function(input)
 	end
 end)
 
--- 🍒 ESP trái cây
-local fruitColors = {
-	["Dragon Fruit"] = Color3.fromRGB(255,0,0),
-	["Leopard Fruit"] = Color3.fromRGB(255,85,0),
-	["Dough Fruit"] = Color3.fromRGB(255,170,0),
-	["Light Fruit"] = Color3.fromRGB(255,255,0),
-	["Flame Fruit"] = Color3.fromRGB(255,100,0),
-	["Bomb Fruit"] = Color3.fromRGB(200,200,200),
-}
+local sanSeaBtn = Instance.new("TextButton", tabFrames[1])
+sanSeaBtn.Size = UDim2.new(0, 200, 0, 40)
+sanSeaBtn.Position = UDim2.new(0, 20, 0, 20)
+sanSeaBtn.Text = "⚙️ Bật script San Sea"
+sanSeaBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+sanSeaBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", sanSeaBtn)
 
-function createFruitESP(obj)
-	if not obj:IsA("Tool") or not obj:FindFirstChild("Handle") then return end
-	if obj.Handle:FindFirstChild("ESP") then return end
-
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "ESP"
-	gui.Size = UDim2.new(0,100,0,40)
-	gui.AlwaysOnTop = true
-	gui.StudsOffset = Vector3.new(0,2,0)
-	gui.Adornee = obj.Handle
-	gui.Parent = obj.Handle
-
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1,0,1,0)
-	label.BackgroundTransparency = 1
-	label.Text = "🍒 " .. obj.Name
-	label.TextColor3 = fruitColors[obj.Name] or Color3.new(1,1,1)
-	label.TextScaled = true
-	label.TextStrokeTransparency = 0
-	label.Font = Enum.Font.SourceSansBold
-	label.Parent = gui
-
-	RunService.RenderStepped:Connect(function()
-		if obj and obj.Parent and obj:FindFirstChild("Handle") then
-			local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-			local distance = hrp and (obj.Handle.Position - hrp.Position).Magnitude or 0
-			label.Text = string.format("🍒 %s\n📏 %.0f m", obj.Name, distance)
-		else
-			gui:Destroy()
-		end
-	end)
-end
-
--- 🧍 ESP người chơi
-function createPlayerESP(player)
-	if player == LocalPlayer then return end
-	local character = player.Character
-	if not character or not character:FindFirstChild("Head") then return end
-	local head = character.Head
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid or head:FindFirstChild("PlayerESP") then return end
-
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "PlayerESP"
-	gui.Size = UDim2.new(0, 150, 0, 50)
-	gui.AlwaysOnTop = true
-	gui.StudsOffset = Vector3.new(0, 2.5, 0)
-	gui.Adornee = head
-	gui.Parent = head
-
-	local nameLabel = Instance.new("TextLabel", gui)
-	nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = player.Name
-	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextStrokeTransparency = 0
-	nameLabel.TextScaled = true
-	nameLabel.Font = Enum.Font.GothamBold
-
-	local infoLabel = Instance.new("TextLabel", gui)
-	infoLabel.Size = UDim2.new(1, 0, 0.5, 0)
-	infoLabel.Position = UDim2.new(0, 0, 0.5, 0)
-	infoLabel.BackgroundTransparency = 1
-	infoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	infoLabel.TextStrokeTransparency = 0
-	infoLabel.TextScaled = true
-	infoLabel.Font = Enum.Font.Gotham
-
-	RunService.RenderStepped:Connect(function()
-		if character and character:FindFirstChild("HumanoidRootPart") and humanoid and humanoid.Health > 0 then
-			local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-			local distance = hrp and (character.HumanoidRootPart.Position - hrp.Position).Magnitude or 0
-			infoLabel.Text = string.format("❤️ %.0f HP\n📏 %.0f m", humanoid.Health, distance)
-		else
-			gui:Destroy()
-		end
-	end)
-end
-
--- Khởi tạo ESP người chơi
-for _, player in pairs(Players:GetPlayers()) do
-	createPlayerESP(player)
-	player.CharacterAdded:Connect(function()
-		wait(1)
-		createPlayerESP(player)
-	end)
-end
-
-Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(function()
-		wait(1)
-		createPlayerESP(player)
-	end)
+sanSeaBtn.MouseButton1Click:Connect(function()
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/DUY7102010/san-sea/refs/heads/main/san-sea.lua"))()
 end)
+-- TAB 2: Nhặt trái & ESP
+local collectBtn = Instance.new("TextButton", tabFrames[2])
+collectBtn.Size = UDim2.new(0, 200, 0, 40)
+collectBtn.Position = UDim2.new(0, 20, 0, 20)
+collectBtn.Text = "🍒 Nhặt trái cây"
+collectBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+collectBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", collectBtn)
 
-for _, obj in pairs(workspace:GetChildren()) do
-	createFruitESP(obj)
-end
-
-workspace.ChildAdded:Connect(function(obj)
-	task.wait(0.5)
-	createFruitESP(obj)
-end)
-
--- 🎯 GUI nhỏ điều khiển Aimbot
-local aimbotEnabled = false
-local aimbotGui = nil
-
-local function createAimbotGui()
-	if aimbotGui then return end
-
-	aimbotGui = Instance.new("ScreenGui", PlayerGui)
-	aimbotGui.Name = "AimbotControl"
-
-	local frame = Instance.new("Frame", aimbotGui)
-	frame.Size = UDim2.new(0, 200, 0, 100)
-	frame.Position = UDim2.new(1, -220, 1, -120)
-	frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	frame.BorderSizePixel = 2
-	frame.BorderColor3 = Color3.fromRGB(255, 85, 0)
-	Instance.new("UICorner", frame)
-
-	local toggleBtn = Instance.new("TextButton", frame)
-	toggleBtn.Size = UDim2.new(1, -20, 0.5, -10)
-	toggleBtn.Position = UDim2.new(0, 10, 0, 10)
-	toggleBtn.Text = "🎯 Bật Aimbot"
-	toggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-	toggleBtn.TextColor3 = Color3.new(1, 1, 1)
-	Instance.new("UICorner", toggleBtn)
-
-	local closeBtn = Instance.new("TextButton", frame)
-	closeBtn.Size = UDim2.new(1, -20, 0.5, -10)
-	closeBtn.Position = UDim2.new(0, 10, 0.5, 10)
-	closeBtn.Text = "❌ Đóng"
-	closeBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-	closeBtn.TextColor3 = Color3.new(1, 1, 1)
-	Instance.new("UICorner", closeBtn)
-
-	toggleBtn.MouseButton1Click:Connect(function()
-		aimbotEnabled = not aimbotEnabled
-		toggleBtn.Text = aimbotEnabled and "✅ Đang Aimbot" or "🎯 Bật Aimbot"
-	end)
-
-	closeBtn.MouseButton1Click:Connect(function()
-		aimbotGui:Destroy()
-		aimbotGui = nil
-		aimbotEnabled = false
-	end)
-end
-
--- 🧠 Logic Aimbot
-RunService.RenderStepped:Connect(function()
-	if not aimbotEnabled then return end
-	local closestTarget = nil
-	local shortestDistance = math.huge
-	local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if not hrp then return end
-
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			local targetHRP = player.Character.HumanoidRootPart
-			local screenPos, onScreen = Camera:WorldToViewportPoint(targetHRP.Position)
-			if onScreen then
-				local distance = (Vector2.new(screenPos.X, screenPos.Y) - UserInputService:GetMouseLocation()).Magnitude
-				if distance < shortestDistance then
-					shortestDistance = distance
-					closestTarget = targetHRP
-				end
-			end
+collectBtn.MouseButton1Click:Connect(function()
+	for _, obj in pairs(workspace:GetDescendants()) do
+		if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
+			obj.Handle.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
 		end
 	end
+end)
 
-	if closestTarget then
-		Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestTarget.Position)
+local espBtn = Instance.new("TextButton", tabFrames[2])
+espBtn.Size = UDim2.new(0, 200, 0, 40)
+espBtn.Position = UDim2.new(0, 20, 0, 70)
+espBtn.Text = "👁️ Bật ESP trái cây"
+espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+espBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", espBtn)
+
+espBtn.MouseButton1Click:Connect(function()
+	for _, obj in pairs(workspace:GetChildren()) do
+		createFruitESP(obj)
 	end
 end)
 
--- 📦 Gắn nút mở GUI Aimbot vào Tab 3
+-- TAB 3: Aimbot & Server VIP
 local aimbotBtn = Instance.new("TextButton", tabFrames[3])
 aimbotBtn.Size = UDim2.new(0, 200, 0, 40)
 aimbotBtn.Position = UDim2.new(0, 20, 0, 20)
@@ -303,4 +158,47 @@ Instance.new("UICorner", aimbotBtn)
 
 aimbotBtn.MouseButton1Click:Connect(function()
 	createAimbotGui()
+end)
+
+local vipBtn = Instance.new("TextButton", tabFrames[3])
+vipBtn.Size = UDim2.new(0, 200, 0, 40)
+vipBtn.Position = UDim2.new(0, 20, 0, 70)
+vipBtn.Text = "🧭 Tìm server VIP"
+vipBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+vipBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", vipBtn)
+
+vipBtn.MouseButton1Click:Connect(function()
+	local placeId = game.PlaceId
+	local cursor = ""
+	local found = false
+
+	while not found do
+		local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+		if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+
+		local success, response = pcall(function()
+			return game:HttpGet(url)
+		end)
+
+		if success then
+			local data = game:GetService("HttpService"):JSONDecode(response)
+			for _, server in pairs(data.data) do
+				if server.playing < 10 then
+					game:GetService("TeleportService"):TeleportToPlaceInstance(placeId, server.id, LocalPlayer)
+					found = true
+					break
+				end
+			end
+			cursor = data.nextPageCursor or ""
+			if cursor == "" then break end
+		else
+			warn("Không thể lấy dữ liệu server.")
+			break
+		end
+	end
+
+	if not found then
+		warn("❌ Không tìm thấy server ít người.")
+	end
 end)
