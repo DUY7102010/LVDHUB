@@ -170,10 +170,12 @@ Instance.new("UICorner", vipBtn)
 
 vipBtn.MouseButton1Click:Connect(function()
 	local placeId = game.PlaceId
+	local currentJobId = game.JobId
 	local cursor = ""
-	local found = false
+	local lowestCount = math.huge
+	local bestServerId = nil
 
-	while not found do
+	while true do
 		local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
 		if cursor ~= "" then url = url .. "&cursor=" .. cursor end
 
@@ -181,24 +183,29 @@ vipBtn.MouseButton1Click:Connect(function()
 			return game:HttpGet(url)
 		end)
 
-		if success then
-			local data = game:GetService("HttpService"):JSONDecode(response)
-			for _, server in pairs(data.data) do
-				if server.playing < 10 then
-					game:GetService("TeleportService"):TeleportToPlaceInstance(placeId, server.id, LocalPlayer)
-					found = true
-					break
-				end
-			end
-			cursor = data.nextPageCursor or ""
-			if cursor == "" then break end
-		else
+		if not success then
 			warn("Không thể lấy dữ liệu server.")
+			break
+		end
+
+		local data = game:GetService("HttpService"):JSONDecode(response)
+		for _, server in pairs(data.data) do
+			if server.id ~= currentJobId and server.playing < lowestCount then
+				lowestCount = server.playing
+				bestServerId = server.id
+			end
+		end
+
+		if data.nextPageCursor then
+			cursor = data.nextPageCursor
+		else
 			break
 		end
 	end
 
-	if not found then
-		warn("❌ Không tìm thấy server ít người.")
+	if bestServerId then
+		game:GetService("TeleportService"):TeleportToPlaceInstance(placeId, bestServerId, game.Players.LocalPlayer)
+	else
+		warn("❌ Không tìm thấy server phù hợp.")
 	end
 end)
