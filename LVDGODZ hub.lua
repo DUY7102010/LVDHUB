@@ -160,68 +160,43 @@ aimbotBtn.MouseButton1Click:Connect(function()
 	createAimbotGui()
 end)
 
+-- ⚙️ Dịch vụ Roblox
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
-local LocalPlayer = game.Players.LocalPlayer
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlaceId = game.PlaceId
+local CurrentJobId = game.JobId
 
-local vipBtn = Instance.new("TextButton", tabFrames[3])
-vipBtn.Size = UDim2.new(0, 200, 0, 40)
-vipBtn.Position = UDim2.new(0, 20, 0, 70)
-vipBtn.Text = "🧭 Chuyển đến server ít người nhất"
-vipBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-vipBtn.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", vipBtn)
+-- 🔁 Tìm server ít người nhất và chuyển
+local function hopServer()
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+    end)
 
-vipBtn.MouseButton1Click:Connect(function()
-	local placeId = game.PlaceId
-	local currentJobId = game.JobId
-	local cursor = ""
-	local lowestCount = math.huge
-	local bestServerId = nil
-	local fallbackServerId = nil
+    if success and result and result.data then
+        local lowestCount = math.huge
+        local bestServerId = nil
 
-	print("🔍 Đang tìm server ít người nhất...")
+        for _, server in pairs(result.data) do
+            if server.id ~= CurrentJobId and server.playing < server.maxPlayers then
+                if server.playing < lowestCount then
+                    lowestCount = server.playing
+                    bestServerId = server.id
+                end
+            end
+        end
 
-	while true do
-		local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-		if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+        if bestServerId then
+            print("✅ Đang chuyển đến server có " .. lowestCount .. " người chơi.")
+            TeleportService:TeleportToPlaceInstance(PlaceId, bestServerId, LocalPlayer)
+        else
+            warn("❌ Không tìm thấy server phù hợp.")
+        end
+    else
+        warn("❌ Không thể lấy danh sách server.")
+    end
+end
 
-		local success, response = pcall(function()
-			return game:HttpGet(url)
-		end)
-
-		if not success then
-			warn("❌ Không thể lấy dữ liệu server.")
-			break
-		end
-
-		local data = HttpService:JSONDecode(response)
-		for _, server in pairs(data.data) do
-			if server.id ~= currentJobId then
-				if server.playing < lowestCount then
-					lowestCount = server.playing
-					bestServerId = server.id
-				end
-				if not fallbackServerId then
-					fallbackServerId = server.id
-				end
-			end
-		end
-
-		if data.nextPageCursor then
-			cursor = data.nextPageCursor
-		else
-			break
-		end
-	end
-
-	if bestServerId then
-		print("✅ Đang chuyển đến server có " .. lowestCount .. " người chơi.")
-		TeleportService:TeleportToPlaceInstance(placeId, bestServerId, LocalPlayer)
-	elseif fallbackServerId then
-		print("⚠️ Không tìm được server ít nhất, đang chuyển đến server khác.")
-		TeleportService:TeleportToPlaceInstance(placeId, fallbackServerId, LocalPlayer)
-	else
-		warn("❌ Không tìm thấy server nào khác.")
-	end
-end)
+-- 🚀 Kích hoạt ngay khi chạy
+hopServer()
