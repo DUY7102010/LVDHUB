@@ -608,19 +608,22 @@ do
         if not hrp then return end
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
-                local hum = obj.Humanoid
-                local npcHRP = obj.HumanoidRootPart
-                local dist = (npcHRP.Position - hrp.Position).Magnitude
-                if dist <= 300 then
-                    -- đứng yên
-                    npcHRP.Velocity = Vector3.new(0,0,0)
-                    npcHRP.RotVelocity = Vector3.new(0,0,0)
-                    hum.WalkSpeed = 0
-                    hum.JumpPower = 0
-                    -- vô hiệu hoá logic tấn công
-                    for _, child in pairs(obj:GetChildren()) do
-                        if child:IsA("Script") or child:IsA("LocalScript") then
-                            child.Disabled = true
+                -- bỏ qua nhân vật của mình
+                if obj ~= player.Character then
+                    local hum = obj.Humanoid
+                    local npcHRP = obj.HumanoidRootPart
+                    local dist = (npcHRP.Position - hrp.Position).Magnitude
+                    if dist <= 300 then
+                        -- đứng yên
+                        npcHRP.Velocity = Vector3.new(0,0,0)
+                        npcHRP.RotVelocity = Vector3.new(0,0,0)
+                        hum.WalkSpeed = 0
+                        hum.JumpPower = 0
+                        -- vô hiệu hoá logic tấn công
+                        for _, child in pairs(obj:GetChildren()) do
+                            if child:IsA("Script") or child:IsA("LocalScript") then
+                                child.Disabled = true
+                            end
                         end
                     end
                 end
