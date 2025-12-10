@@ -357,7 +357,7 @@ end
 
 -- TAB 2: Nhặt trái & ESP trái cây
 do
-    -- 🍒 Nhặt trái cây (tele tất cả về nhân vật)
+    -- 🍒 Nhặt trái cây (tele tất cả trái về nhân vật)
 do
     local collectBtn = Instance.new("TextButton", tabFrames[2])
     collectBtn.Size = UDim2.new(0,200,0,40)
@@ -371,13 +371,10 @@ do
         local hrp = safeGetCharacterHumanoidRootPart()
         if not hrp then return end
         for _, obj in pairs(workspace:GetDescendants()) do
-            -- kiểm tra nếu là Tool có Handle (trái cây dạng tool)
+            -- chỉ tele Tool có Handle (trái cây)
             if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
+                -- tele trái về ngay nhân vật để kẹt vào người và tự động nhặt
                 obj.Handle.CFrame = hrp.CFrame
-            end
-            -- kiểm tra nếu là Model có HumanoidRootPart (trái cây dạng model)
-            if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-                obj.HumanoidRootPart.CFrame = hrp.CFrame
             end
         end
     end)
