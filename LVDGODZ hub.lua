@@ -670,13 +670,49 @@ do
     player.CharacterAdded:Connect(setupCharacter)
 end
 
+-- 🔄 Vào lại server cũ (Tab 3)
+do
+    local rejoinBtn = Instance.new("TextButton", tabFrames[3])
+    rejoinBtn.Size = UDim2.new(0,200,0,40)
+    rejoinBtn.Position = UDim2.new(0,20,0,20)
+    rejoinBtn.Text = "🔄 Vào lại server cũ"
+    rejoinBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    rejoinBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", rejoinBtn)
+
+    local TeleportService = game:GetService("TeleportService")
+    local player = game.Players.LocalPlayer
+
+    rejoinBtn.MouseButton1Click:Connect(function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+    end)
+end
+
+-- 🔄 Vào lại server cũ (Tab 3)
+do
+    local rejoinBtn = Instance.new("TextButton", tabFrames[3])
+    rejoinBtn.Size = UDim2.new(0,200,0,40)
+    rejoinBtn.Position = UDim2.new(0,20,0,20)
+    rejoinBtn.Text = "🔄 Vào lại server cũ"
+    rejoinBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    rejoinBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", rejoinBtn)
+
+    local TeleportService = game:GetService("TeleportService")
+    local player = game.Players.LocalPlayer
+
+    rejoinBtn.MouseButton1Click:Connect(function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+    end)
+end
+
 -- ❄️ Freeze NPC (Tab 3)
 do
     local freezeOn = false
 
     local freezeBtn = Instance.new("TextButton", tabFrames[3])
     freezeBtn.Size = UDim2.new(0,200,0,40)
-    freezeBtn.Position = UDim2.new(0,20,0,120)
+    freezeBtn.Position = UDim2.new(0,20,0,70)
     freezeBtn.Text = "❄️ Freeze NPC OFF"
     freezeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     freezeBtn.TextColor3 = Color3.new(1,1,1)
@@ -684,48 +720,32 @@ do
 
     local player = game.Players.LocalPlayer
 
-    local function freezeNPCs()
-        local hrp = safeGetCharacterHumanoidRootPart()
+    local function freezeNPCsOnce()
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
-                -- bỏ qua nhân vật của mình
                 if obj ~= player.Character then
                     local hum = obj.Humanoid
                     local npcHRP = obj.HumanoidRootPart
                     local dist = (npcHRP.Position - hrp.Position).Magnitude
                     if dist <= 300 then
-                        -- đứng yên
-                        npcHRP.Velocity = Vector3.new(0,0,0)
-                        npcHRP.RotVelocity = Vector3.new(0,0,0)
                         hum.WalkSpeed = 0
                         hum.JumpPower = 0
-                        -- vô hiệu hoá logic tấn công
-                        for _, child in pairs(obj:GetChildren()) do
-                            if child:IsA("Script") or child:IsA("LocalScript") then
-                                child.Disabled = true
-                            end
-                        end
+                        npcHRP.Velocity = Vector3.zero
+                        npcHRP.RotVelocity = Vector3.zero
                     end
                 end
             end
         end
     end
 
-    -- vòng lặp liên tục khi bật
-    task.spawn(function()
-        while true do
-            if freezeOn then
-                freezeNPCs()
-            end
-            task.wait(0.5)
-        end
-    end)
-
-    -- bật/tắt bằng nút
     freezeBtn.MouseButton1Click:Connect(function()
         freezeOn = not freezeOn
         freezeBtn.Text = freezeOn and "❄️ Freeze NPC ON" or "❄️ Freeze NPC OFF"
+        if freezeOn then
+            freezeNPCsOnce()
+        end
     end)
 end
 
