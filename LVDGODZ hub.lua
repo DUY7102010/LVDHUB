@@ -5,11 +5,68 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
+
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- 🖥 GUI chính
+-- 🧰 Helpers
+local function safeGetCharacterHumanoidRootPart()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart")
+    return hrp
+end
+
+-- ESP trái cây
+local function createFruitESP(object)
+    if not object or not object:IsDescendantOf(workspace) then return end
+    if object:IsA("Tool") then
+        local handle = object:FindFirstChild("Handle")
+        if handle and not handle:FindFirstChild("LVDGODZ_FruitESP") then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "LVDGODZ_FruitESP"
+            billboard.Size = UDim2.new(0, 80, 0, 30)
+            billboard.AlwaysOnTop = true
+            billboard.LightInfluence = 0
+            billboard.MaxDistance = 10000
+            billboard.Parent = handle
+
+            local label = Instance.new("TextLabel", billboard)
+            label.BackgroundTransparency = 1
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.Text = object.Name
+            label.TextColor3 = Color3.fromRGB(255, 255, 0)
+            label.Font = Enum.Font.GothamBold
+            label.TextScaled = true
+        end
+    end
+end
+
+-- ESP player
+local function createPlayerESP(plr)
+    if plr == LocalPlayer then return end
+    local char = plr.Character or plr.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hrp:FindFirstChild("LVDGODZ_PlayerESP") then return end
+
+    local billboard = Instance.new("BillboardGui", hrp)
+    billboard.Name = "LVDGODZ_PlayerESP"
+    billboard.Size = UDim2.new(0, 100, 0, 30)
+    billboard.AlwaysOnTop = true
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+
+    local label = Instance.new("TextLabel", billboard)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+    label.Text = plr.Name .. " (" .. math.floor(dist) .. "m) HP:" .. math.floor(hum.Health)
+    label.TextColor3 = Color3.fromRGB(0, 255, 0)
+    label.Font = Enum.Font.GothamBold
+    label.TextScaled = true
+end
+
+-- 🖥️ GUI chính
 local gui = Instance.new("ScreenGui", PlayerGui)
 gui.Name = "LVDGODZ_GUI"
 gui.ResetOnSpawn = false
@@ -24,7 +81,17 @@ toggleButton.TextSize = 18
 toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 Instance.new("UICorner", toggleButton)
 
-local mainFrame = Instance.new("Frame", gui)
+-- Rainbow chữ LVDGODZ
+task.spawn(function()
+    while true do
+        local t = tick() % 5 / 5
+        toggleButton.TextColor3 = Color3.fromHSV(t, 1, 1)
+        task.wait(0.1)
+    end
+end)
+
+-- ScrollingFrame
+local mainFrame = Instance.new("ScrollingFrame", gui)
 mainFrame.Size = UDim2.new(0, 500, 0, 300)
 mainFrame.Position = UDim2.new(0.5, -250, 0.5, -150)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -33,18 +100,33 @@ mainFrame.BorderSizePixel = 2
 mainFrame.BorderColor3 = Color3.fromRGB(85, 170, 255)
 mainFrame.Visible = false
 mainFrame.Active = true
-mainFrame.Draggable = true
 mainFrame.ClipsDescendants = true
+mainFrame.CanvasSize = UDim2.new(0,0,0,600)
+mainFrame.ScrollBarThickness = 8
 Instance.new("UICorner", mainFrame)
 
--- 🔄 Toggle hiển thị
-local isMinimized = false
+-- Toggle hiển thị với Tween
+local isMinimized = true
+local function animateGui(open)
+    local goal = {}
+    if open then
+        goal.Size = UDim2.new(0, 500, 0, 300)
+        goal.Position = UDim2.new(0.5, -250, 0.5, -150)
+    else
+        goal.Size = UDim2.new(0, 0, 0, 0)
+        goal.Position = UDim2.new(0.5, 0, 0.5, 0)
+    end
+    local tween = TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), goal)
+    tween:Play()
+end
+
 toggleButton.MouseButton1Click:Connect(function()
-	isMinimized = not isMinimized
-	mainFrame.Visible = not isMinimized
+    isMinimized = not isMinimized
+    animateGui(not isMinimized)
+    mainFrame.Visible = not isMinimized
 end)
 
--- 🗂 Tabs
+-- Tabs
 local tabBar = Instance.new("Frame", mainFrame)
 tabBar.Size = UDim2.new(1, 0, 0, 20)
 tabBar.Position = UDim2.new(0, 0, 0, 0)
@@ -55,148 +137,513 @@ local tabFrames = {}
 local currentTab = 1
 
 for i = 1, 3 do
-	local tabLabel = Instance.new("TextButton", tabBar)
-	tabLabel.Name = "Tab" .. i
-	tabLabel.Size = UDim2.new(1/3, 0, 1, 0)
-	tabLabel.Position = UDim2.new((i-1)/3, 0, 0, 0)
-	tabLabel.Text = "Tab " .. i
-	tabLabel.Font = Enum.Font.GothamBold
-	tabLabel.TextSize = 14
-	tabLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-	tabLabel.BackgroundTransparency = 1
+    local tabLabel = Instance.new("TextButton", tabBar)
+    tabLabel.Name = "Tab" .. i
+    tabLabel.Size = UDim2.new(1/3, 0, 1, 0)
+    tabLabel.Position = UDim2.new((i-1)/3, 0, 0, 0)
+    tabLabel.Text = "Tab " .. i
+    tabLabel.Font = Enum.Font.GothamBold
+    tabLabel.TextSize = 14
+    tabLabel.BackgroundColor3 = (i==1) and Color3.fromRGB(100,100,100) or Color3.fromRGB(200,200,200)
+    tabLabel.TextColor3 = (i==1) and Color3.fromRGB(255,255,255) or Color3.fromRGB(0,0,0)
 
-	local tabFrame = Instance.new("Frame", mainFrame)
-	tabFrame.Size = UDim2.new(1, 0, 1, -20)
-	tabFrame.Position = UDim2.new(0, 0, 0, 20)
-	tabFrame.BackgroundTransparency = 1
-	tabFrame.Visible = (i == 1)
-	tabFrames[i] = tabFrame
+    local underline = Instance.new("Frame", tabLabel)
+    underline.Size = UDim2.new(1,0,0,2)
+    underline.Position = UDim2.new(0,0,1,-2)
+    underline.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    underline.Visible = (i==1)
 
-	tabLabel.MouseButton1Click:Connect(function()
-		currentTab = i
-		for j, frame in ipairs(tabFrames) do
-			frame.Visible = (j == i)
-		end
-	end)
+    local tabFrame = Instance.new("Frame", mainFrame)
+    tabFrame.Size = UDim2.new(1, 0, 1, -20)
+    tabFrame.Position = UDim2.new(0, 0, 0, 20)
+    tabFrame.BackgroundTransparency = 1
+    tabFrame.Visible = (i == 1)
+    tabFrames[i] = tabFrame
+
+    tabLabel.MouseButton1Click:Connect(function()
+        currentTab = i
+        for j, frame in ipairs(tabFrames) do
+                    frame.Visible = (j == i)
+        tabBar["Tab"..j].BackgroundColor3 = (j==i) and Color3.fromRGB(100,100,100) or Color3.fromRGB(200,200,200)
+        tabBar["Tab"..j].TextColor3 = (j==i) and Color3.fromRGB(255,255,255) or Color3.fromRGB(0,0,0)
+        tabBar["Tab"..j]:FindFirstChildOfClass("Frame").Visible = (j==i)
+    end
+end)
 end
 
--- 📱 Vuốt chuyển tab
-local swipeStartX = nil
-mainFrame.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		swipeStartX = input.Position.X
-	end
-end)
-
-mainFrame.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch and swipeStartX then
-		local deltaX = input.Position.X - swipeStartX
-		if math.abs(deltaX) > 50 then
-			if deltaX < 0 and currentTab < #tabFrames then
-				currentTab += 1
-			elseif deltaX > 0 and currentTab > 1 then
-				currentTab -= 1
-			end
-			for i, frame in ipairs(tabFrames) do
-				frame.Visible = (i == currentTab)
-			end
-		end
-		swipeStartX = nil
-	end
-end)
-
-local sanSeaBtn = Instance.new("TextButton", tabFrames[1])
-sanSeaBtn.Size = UDim2.new(0, 200, 0, 40)
-sanSeaBtn.Position = UDim2.new(0, 20, 0, 20)
-sanSeaBtn.Text = "⚙️ Bật script San Sea"
-sanSeaBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-sanSeaBtn.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", sanSeaBtn)
-
-sanSeaBtn.MouseButton1Click:Connect(function()
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/DUY7102010/san-sea/refs/heads/main/san-sea.lua"))()
-end)
--- TAB 2: Nhặt trái & ESP
-local collectBtn = Instance.new("TextButton", tabFrames[2])
-collectBtn.Size = UDim2.new(0, 200, 0, 40)
-collectBtn.Position = UDim2.new(0, 20, 0, 20)
-collectBtn.Text = "🍒 Nhặt trái cây"
-collectBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-collectBtn.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", collectBtn)
-
-collectBtn.MouseButton1Click:Connect(function()
-	for _, obj in pairs(workspace:GetDescendants()) do
-		if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
-			obj.Handle.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-		end
-	end
-end)
-
-local espBtn = Instance.new("TextButton", tabFrames[2])
-espBtn.Size = UDim2.new(0, 200, 0, 40)
-espBtn.Position = UDim2.new(0, 20, 0, 70)
-espBtn.Text = "👁️ Bật ESP trái cây"
-espBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-espBtn.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", espBtn)
-
-espBtn.MouseButton1Click:Connect(function()
-	for _, obj in pairs(workspace:GetChildren()) do
-		createFruitESP(obj)
-	end
-end)
-
--- TAB 3: Aimbot & Server VIP
-local aimbotBtn = Instance.new("TextButton", tabFrames[3])
-aimbotBtn.Size = UDim2.new(0, 200, 0, 40)
-aimbotBtn.Position = UDim2.new(0, 20, 0, 20)
-aimbotBtn.Text = "🎯 Mở GUI Aimbot"
-aimbotBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-aimbotBtn.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", aimbotBtn)
-
-aimbotBtn.MouseButton1Click:Connect(function()
-	createAimbotGui()
-end)
-
--- ⚙️ Dịch vụ Roblox
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local PlaceId = game.PlaceId
-local CurrentJobId = game.JobId
-
--- 🔁 Tìm server ít người nhất và chuyển
-local function hopServer()
-    local success, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+-- TAB 1: San Sea + Fly/Noclip/Speed + ESP Player
+do
+    -- San Sea
+    local sanSeaBtn = Instance.new("TextButton", tabFrames[1])
+    sanSeaBtn.Size = UDim2.new(0, 200, 0, 40)
+    sanSeaBtn.Position = UDim2.new(0, 20, 0, 20)
+    sanSeaBtn.Text = "⚙️ Bật script San Sea"
+    sanSeaBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    sanSeaBtn.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", sanSeaBtn)
+    sanSeaBtn.MouseButton1Click:Connect(function()
+        local ok, err = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/DUY7102010/san-sea/refs/heads/main/san-sea.lua"))()
+        end)
+        if not ok then warn("Không tải được San Sea: " .. tostring(err)) end
     end)
 
-    if success and result and result.data then
-        local lowestCount = math.huge
-        local bestServerId = nil
+    -- ✈️ Fly với nút tăng/giảm tốc độ
+local flying = false
+local flySpeed = 50
+local flyBtn = Instance.new("TextButton", tabFrames[1])
+flyBtn.Size = UDim2.new(0,200,0,40)
+flyBtn.Position = UDim2.new(0,20,0,70)
+flyBtn.Text = "✈️ Fly"
+flyBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+flyBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", flyBtn)
 
-        for _, server in pairs(result.data) do
-            if server.id ~= CurrentJobId and server.playing < server.maxPlayers then
-                if server.playing < lowestCount then
-                    lowestCount = server.playing
-                    bestServerId = server.id
+local minusBtn, speedLabel, plusBtn
+flyBtn.MouseButton1Click:Connect(function()
+    flying = not flying
+    if flying then
+        flyBtn.Text = "✈️ Fly (ON)"
+        local hrp = safeGetCharacterHumanoidRootPart()
+        -- tạo BodyVelocity riêng
+        local bv = Instance.new("BodyVelocity")
+        bv.Name = "LVDGODZ_FlyBV"
+        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bv.Parent = hrp
+
+        -- loop bay
+        RunService.RenderStepped:Connect(function()
+            if flying and hrp and hrp:FindFirstChild("LVDGODZ_FlyBV") then
+                local move = Vector3.new()
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
+                hrp.LVDGODZ_FlyBV.Velocity = move.Magnitude>0 and move.Unit*flySpeed or Vector3.zero
+            end
+        end)
+
+        -- tạo nút chỉnh tốc độ
+        minusBtn = Instance.new("TextButton", tabFrames[1])
+        minusBtn.Size = UDim2.new(0,40,0,40)
+        minusBtn.Position = UDim2.new(0,230,0,70)
+        minusBtn.Text = "-"
+        speedLabel = Instance.new("TextLabel", tabFrames[1])
+        speedLabel.Size = UDim2.new(0,40,0,40)
+        speedLabel.Position = UDim2.new(0,270,0,70)
+        speedLabel.Text = tostring(flySpeed)
+        plusBtn = Instance.new("TextButton", tabFrames[1])
+        plusBtn.Size = UDim2.new(0,40,0,40)
+        plusBtn.Position = UDim2.new(0,310,0,70)
+        plusBtn.Text = "+"
+
+        minusBtn.MouseButton1Click:Connect(function()
+            flySpeed = math.max(10, flySpeed-10)
+            speedLabel.Text = tostring(flySpeed)
+        end)
+        plusBtn.MouseButton1Click:Connect(function()
+            flySpeed = flySpeed+10
+            speedLabel.Text = tostring(flySpeed)
+        end)
+    else
+        flyBtn.Text = "✈️ Fly"
+        -- xoá BodyVelocity khi tắt
+        local hrp = safeGetCharacterHumanoidRootPart()
+        if hrp then
+            for _, v in pairs(hrp:GetChildren()) do
+                if v:IsA("BodyVelocity") and v.Name=="LVDGODZ_FlyBV" then
+                    v:Destroy()
+                end
+            end
+        end
+        if minusBtn then minusBtn:Destroy() end
+        if plusBtn then plusBtn:Destroy() end
+        if speedLabel then speedLabel:Destroy() end
+    end
+end)
+
+    -- 🚪 Noclip
+    local noclip = false
+    local noclipBtn = Instance.new("TextButton", tabFrames[1])
+    noclipBtn.Size = UDim2.new(0,200,0,40)
+    noclipBtn.Position = UDim2.new(0,20,0,120)
+    noclipBtn.Text = "🚪 Noclip"
+    noclipBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    noclipBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", noclipBtn)
+    noclipBtn.MouseButton1Click:Connect(function()
+        noclip = not noclip
+    end)
+    RunService.Stepped:Connect(function()
+        if noclip and LocalPlayer.Character then
+            for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end
+    end)
+
+    -- 🏃 Speed slider (bật/tắt)
+local speedOn = false
+local currentSpeed = 16
+local speedBtn = Instance.new("TextButton", tabFrames[1])
+speedBtn.Size = UDim2.new(0,200,0,40)
+speedBtn.Position = UDim2.new(0,20,0,170)
+speedBtn.Text = "🏃 Speed"
+speedBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+speedBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", speedBtn)
+
+local sliderFrame, sliderBar, sliderHandle
+speedBtn.MouseButton1Click:Connect(function()
+    speedOn = not speedOn
+    if speedOn then
+        speedBtn.Text = "🏃 Speed (ON)"
+        sliderFrame = Instance.new("Frame", tabFrames[1])
+        sliderFrame.Size = UDim2.new(0,200,0,20)
+        sliderFrame.Position = UDim2.new(0,20,0,210)
+        sliderBar = Instance.new("Frame", sliderFrame)
+        sliderBar.Size = UDim2.new(1,0,1,0)
+        sliderBar.BackgroundColor3 = Color3.fromRGB(100,100,100)
+        sliderHandle = Instance.new("Frame", sliderFrame)
+        sliderHandle.Size = UDim2.new(0,10,1,0)
+        sliderHandle.BackgroundColor3 = Color3.fromRGB(255,0,0)
+
+        local dragging=false
+        sliderHandle.InputBegan:Connect(function(input)
+            if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true end
+        end)
+        sliderHandle.InputEnded:Connect(function(input)
+            if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
+        end)
+
+        RunService.RenderStepped:Connect(function()
+            if speedOn and sliderFrame and sliderHandle and dragging then
+                local mouseX = UserInputService:GetMouseLocation().X
+                local rel = math.clamp((mouseX-sliderFrame.AbsolutePosition.X)/sliderFrame.AbsoluteSize.X,0,1)
+                sliderHandle.Position = UDim2.new(rel, -5, 0, 0)
+                currentSpeed = math.floor(16+rel*(400-16))
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    LocalPlayer.Character.Humanoid.WalkSpeed = currentSpeed
+                end
+                speedBtn.Text = "🏃 Speed: "..currentSpeed
+            end
+        end)
+    else
+        speedBtn.Text = "🏃 Speed"
+        if sliderFrame then sliderFrame:Destroy() end
+        -- reset về mặc định khi tắt
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        end
+        currentSpeed = 16
+    end
+end)
+
+    -- 👤 ESP Player
+    local espPlayerBtn = Instance.new("TextButton", tabFrames[1])
+    espPlayerBtn.Size = UDim2.new(0,200,0,40)
+    espPlayerBtn.Position = UDim2.new(0,20,0,240)
+    espPlayerBtn.Text = "👤 Bật ESP Player"
+    espPlayerBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    espPlayerBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", espPlayerBtn)
+    espPlayerBtn.MouseButton1Click:Connect(function()
+        for _, plr in pairs(Players:GetPlayers()) do
+            createPlayerESP(plr)
+        end
+    end)
+end
+
+
+-- TAB 2: Nhặt trái & ESP trái cây
+do
+    -- 🍒 Nhặt trái cây (tele tất cả về nhân vật)
+do
+    local collectBtn = Instance.new("TextButton", tabFrames[2])
+    collectBtn.Size = UDim2.new(0,200,0,40)
+    collectBtn.Position = UDim2.new(0,20,0,20)
+    collectBtn.Text = "🍒 Nhặt trái cây"
+    collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    collectBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", collectBtn)
+
+    collectBtn.MouseButton1Click:Connect(function()
+        local hrp = safeGetCharacterHumanoidRootPart()
+        if not hrp then return end
+        for _, obj in pairs(workspace:GetDescendants()) do
+            -- kiểm tra nếu là Tool có Handle (trái cây dạng tool)
+            if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
+                obj.Handle.CFrame = hrp.CFrame
+            end
+            -- kiểm tra nếu là Model có HumanoidRootPart (trái cây dạng model)
+            if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
+                obj.HumanoidRootPart.CFrame = hrp.CFrame
+            end
+        end
+    end)
+end
+
+    -- 👁️ ESP trái cây (chỉ hiển thị)
+    local espBtn = Instance.new("TextButton", tabFrames[2])
+    espBtn.Size = UDim2.new(0,200,0,40)
+    espBtn.Position = UDim2.new(0,20,0,70)
+    espBtn.Text = "👁️ Bật ESP trái cây"
+    espBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    espBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", espBtn)
+
+    espBtn.MouseButton1Click:Connect(function()
+        for _, obj in pairs(workspace:GetChildren()) do
+            createFruitESP(obj)
+        end
+    end)
+
+    -- tự động gắn ESP cho trái mới spawn
+    workspace.DescendantAdded:Connect(function(obj)
+        createFruitESP(obj)
+    end)
+end
+
+-- TAB 3: Hop Server + Platform xanh dương + Xoá rung màn hình
+do
+    -- Hop Server (giữ nguyên như trước)
+    local hopBtn = Instance.new("TextButton", tabFrames[3])
+    hopBtn.Size = UDim2.new(0,200,0,40)
+    hopBtn.Position = UDim2.new(0,20,0,20)
+    hopBtn.Text = "🔁 Hop Server"
+    hopBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    hopBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", hopBtn)
+
+    local PlaceId = game.PlaceId
+    local CurrentJobId = game.JobId
+    local function hopServer()
+        local success, result = pcall(function()
+            local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+            return HttpService:JSONDecode(game:HttpGet(url))
+        end)
+        if success and result and result.data then
+            local lowestCount = math.huge
+            local bestServerId = nil
+            for _, server in pairs(result.data) do
+                if server.id ~= CurrentJobId and server.playing < server.maxPlayers then
+                    if server.playing < lowestCount then
+                        lowestCount = server.playing
+                        bestServerId = server.id
+                    end
+                end
+            end
+            if bestServerId then
+                TeleportService:TeleportToPlaceInstance(PlaceId, bestServerId, LocalPlayer)
+            end
+        end
+    end
+    hopBtn.MouseButton1Click:Connect(hopServer)
+
+    -- 🟦 Platform xanh dương
+    local function spawnPlatform()
+        local hrp = safeGetCharacterHumanoidRootPart()
+        if not hrp then return end
+        local part = Instance.new("Part")
+        part.Size = Vector3.new(3,0.5,3)
+        part.Position = hrp.Position - Vector3.new(0,3,0)
+        part.Anchored = true
+        part.CanCollide = true
+        part.Transparency = 0.5
+        part.Color = Color3.fromRGB(0,0,255)
+        part.Parent = workspace
+        game:GetService("Debris"):AddItem(part,2)
+        task.delay(1.75,function()
+            spawnPlatform()
+        end)
+    end
+
+    local platformBtn = Instance.new("TextButton", tabFrames[3])
+    platformBtn.Size = UDim2.new(0,200,0,40)
+    platformBtn.Position = UDim2.new(0,20,0,70)
+    platformBtn.Text = "🟦 Spawn Platform"
+    platformBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    platformBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", platformBtn)
+    platformBtn.MouseButton1Click:Connect(spawnPlatform)
+
+    -- ❌ Xoá hiệu ứng rung màn hình
+    local clearShakeBtn = Instance.new("TextButton", tabFrames[3])
+    clearShakeBtn.Size = UDim2.new(0,200,0,40)
+    clearShakeBtn.Position = UDim2.new(0,20,0,120)
+    clearShakeBtn.Text = "❌ Xoá rung màn hình"
+    clearShakeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    clearShakeBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", clearShakeBtn)
+
+    clearShakeBtn.MouseButton1Click:Connect(function()
+        -- reset Camera về mặc định
+        Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        Camera.CameraType = Enum.CameraType.Custom
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + Camera.CFrame.LookVector)
+
+        -- xoá các hiệu ứng rung nếu có gắn vào Camera
+        for _, v in pairs(Camera:GetChildren()) do
+            if v:IsA("Tween") or v:IsA("BodyPosition") or v:IsA("BodyVelocity") then
+                v:Destroy()
+            end
+        end
+    end)
+end
+
+-- ⚔️ PvP (Tab 3)
+do
+    local pvpFrame = tabFrames[3]
+
+    local pvpLabel = Instance.new("TextLabel", pvpFrame)
+    pvpLabel.Size = UDim2.new(0,200,0,40)
+    pvpLabel.Position = UDim2.new(0,20,0,20)
+    pvpLabel.Text = "⚔️ PvP"
+    pvpLabel.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    pvpLabel.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", pvpLabel)
+
+    local uis = game:GetService("UserInputService")
+    local rs = game:GetService("RunService")
+    local player = game.Players.LocalPlayer
+
+    -- setup nhân vật: double jump
+    local function setupCharacter(character)
+        local humanoid = character:WaitForChild("Humanoid")
+
+        humanoid.JumpPower = 50
+        local clicked, clickTime = false, 0
+        local window = 0.25
+
+        -- click chuột trái
+        uis.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                clicked = true
+                clickTime = tick()
+            end
+        end)
+
+        -- nhấn Space
+        uis.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if input.KeyCode == Enum.KeyCode.Space then
+                if clicked and tick() - clickTime <= window then
+                    humanoid.JumpPower = 400
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    task.delay(0.25, function()
+                        if humanoid and humanoid.Parent then
+                            humanoid.JumpPower = 50
+                        end
+                    end)
+                    clicked = false
+                else
+                    humanoid.Jump = true
+                end
+            end
+        end)
+
+        -- reset click nếu quá thời gian
+        rs.Heartbeat:Connect(function()
+            if clicked and tick() - clickTime > window then
+                clicked = false
+            end
+        end)
+    end
+
+    -- teleport tới người chơi gần nhất
+    local function teleportToClosest()
+        local character = player.Character
+        if not character then return end
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        local closestHRP, closestDistance = nil, math.huge
+        for _, other in ipairs(game.Players:GetPlayers()) do
+            if other ~= player and other.Character then
+                local otherHRP = other.Character:FindFirstChild("HumanoidRootPart")
+                if otherHRP then
+                    local distance = (hrp.Position - otherHRP.Position).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestHRP = otherHRP
+                    end
                 end
             end
         end
 
-        if bestServerId then
-            print("✅ Đang chuyển đến server có " .. lowestCount .. " người chơi.")
-            TeleportService:TeleportToPlaceInstance(PlaceId, bestServerId, LocalPlayer)
-        else
-            warn("❌ Không tìm thấy server phù hợp.")
+        if closestHRP then
+            hrp.CFrame = closestHRP.CFrame * CFrame.new(0, 3, 0)
         end
-    else
-        warn("❌ Không thể lấy danh sách server.")
     end
+
+    -- phím G: teleport tới người chơi gần nhất
+    uis.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == Enum.KeyCode.G then
+            teleportToClosest()
+        end
+    end)
+
+    -- setup khi nhân vật spawn
+    if player.Character then
+        setupCharacter(player.Character)
+    end
+    player.CharacterAdded:Connect(setupCharacter)
 end
 
--- 🚀 Kích hoạt ngay khi chạy
-hopServer()
+-- ❄️ Freeze NPC (Tab 3)
+do
+    local freezeOn = false
+
+    local freezeBtn = Instance.new("TextButton", tabFrames[3])
+    freezeBtn.Size = UDim2.new(0,200,0,40)
+    freezeBtn.Position = UDim2.new(0,20,0,120)
+    freezeBtn.Text = "❄️ Freeze NPC OFF"
+    freezeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    freezeBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", freezeBtn)
+
+    local player = game.Players.LocalPlayer
+
+    local function freezeNPCs()
+        local hrp = safeGetCharacterHumanoidRootPart()
+        if not hrp then return end
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
+                local hum = obj.Humanoid
+                local npcHRP = obj.HumanoidRootPart
+                local dist = (npcHRP.Position - hrp.Position).Magnitude
+                if dist <= 300 then
+                    -- đứng yên
+                    npcHRP.Velocity = Vector3.new(0,0,0)
+                    npcHRP.RotVelocity = Vector3.new(0,0,0)
+                    hum.WalkSpeed = 0
+                    hum.JumpPower = 0
+                    -- vô hiệu hoá logic tấn công
+                    for _, child in pairs(obj:GetChildren()) do
+                        if child:IsA("Script") or child:IsA("LocalScript") then
+                            child.Disabled = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- vòng lặp liên tục khi bật
+    task.spawn(function()
+        while true do
+            if freezeOn then
+                freezeNPCs()
+            end
+            task.wait(0.5)
+        end
+    end)
+
+    -- bật/tắt bằng nút
+    freezeBtn.MouseButton1Click:Connect(function()
+        freezeOn = not freezeOn
+        freezeBtn.Text = freezeOn and "❄️ Freeze NPC ON" or "❄️ Freeze NPC OFF"
+    end)
+end
