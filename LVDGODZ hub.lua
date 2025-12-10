@@ -728,3 +728,46 @@ do
         freezeBtn.Text = freezeOn and "❄️ Freeze NPC ON" or "❄️ Freeze NPC OFF"
     end)
 end
+
+-- 📷 Chặn rung màn hình (Tab 3)
+do
+    local blockShake = false
+
+    local blockBtn = Instance.new("TextButton", tabFrames[3])
+    blockBtn.Size = UDim2.new(0,200,0,40)
+    blockBtn.Position = UDim2.new(0,20,0,70)
+    blockBtn.Text = "📷 Chặn rung OFF"
+    blockBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    blockBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", blockBtn)
+
+    local player = game.Players.LocalPlayer
+    local cam = workspace.CurrentCamera
+
+    local function resetCamera()
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            cam.CameraSubject = player.Character.Humanoid
+            cam.CameraType = Enum.CameraType.Custom
+            cam.CFrame = CFrame.new(cam.CFrame.Position) * CFrame.Angles(0,0,0)
+        end
+    end
+
+    -- vòng lặp giữ camera ổn định khi bật
+    task.spawn(function()
+        while true do
+            if blockShake then
+                resetCamera()
+            end
+            task.wait(0.1)
+        end
+    end)
+
+    -- bật/tắt bằng nút
+    blockBtn.MouseButton1Click:Connect(function()
+        blockShake = not blockShake
+        blockBtn.Text = blockShake and "📷 Chặn rung ON" or "📷 Chặn rung OFF"
+        if blockShake then
+            resetCamera()
+        end
+    end)
+end
