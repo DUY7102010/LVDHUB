@@ -744,30 +744,33 @@ do
     local player = game.Players.LocalPlayer
     local cam = workspace.CurrentCamera
 
-    local function resetCamera()
+    local function enableBlock()
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             cam.CameraSubject = player.Character.Humanoid
             cam.CameraType = Enum.CameraType.Custom
-            cam.CFrame = CFrame.new(cam.CFrame.Position) * CFrame.Angles(0,0,0)
         end
+        -- chỉ chặn khi có script cố đổi CameraType
+        cam:GetPropertyChangedSignal("CameraType"):Connect(function()
+            if blockShake and cam.CameraType ~= Enum.CameraType.Custom then
+                cam.CameraType = Enum.CameraType.Custom
+                if player.Character and player.Character:FindFirstChild("Humanoid") then
+                    cam.CameraSubject = player.Character.Humanoid
+                end
+            end
+        end)
     end
 
-    -- vòng lặp giữ camera ổn định khi bật
-    task.spawn(function()
-        while true do
-            if blockShake then
-                resetCamera()
-            end
-            task.wait(0.1)
-        end
-    end)
-
-    -- bật/tắt bằng nút
     blockBtn.MouseButton1Click:Connect(function()
         blockShake = not blockShake
         blockBtn.Text = blockShake and "📷 Chặn rung ON" or "📷 Chặn rung OFF"
         if blockShake then
-            resetCamera()
+            enableBlock()
+        end
+    end)
+
+    player.CharacterAdded:Connect(function()
+        if blockShake then
+            enableBlock()
         end
     end)
 end
