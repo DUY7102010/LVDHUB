@@ -670,6 +670,27 @@ do
     player.CharacterAdded:Connect(setupCharacter)
 end
 
+local function addESP(char)
+    if not char:FindFirstChild("ESPHighlight") then
+        local hl = Instance.new("Highlight")
+        hl.Name = "ESPHighlight"
+        hl.FillTransparency = 1
+        hl.OutlineColor = Color3.fromRGB(255,0,0)
+        hl.Parent = char
+    end
+end
+
+for _, plr in pairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer and plr.Character then
+        addESP(plr.Character)
+    end
+    plr.CharacterAdded:Connect(addESP)
+end
+
+Players.PlayerAdded:Connect(function(newPlr)
+    newPlr.CharacterAdded:Connect(addESP)
+end)
+
 -- 🔄 Vào lại server cũ (Tab 3)
 do
     local rejoinBtn = Instance.new("TextButton", tabFrames[3])
