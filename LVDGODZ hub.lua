@@ -344,81 +344,88 @@ flyBtn.MouseButton1Click:Connect(function()
 end)
 
     -- 🚪 Noclip
-    local noclip = false
-    local noclipBtn = Instance.new("TextButton", tabFrames[1])
-    noclipBtn.Size = UDim2.new(0,200,0,40)
-    noclipBtn.Position = UDim2.new(0,20,0,120)
-    noclipBtn.Text = "🚪 Noclip"
-    noclipBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    noclipBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", noclipBtn)
-    noclipBtn.MouseButton1Click:Connect(function()
-        noclip = not noclip
-    end)
-    RunService.Stepped:Connect(function()
-        if noclip and LocalPlayer.Character then
-            for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
-            end
-        end
-    end)
+    local noclipEnabled = false
 
-    -- 🏃 Speed slider (bật/tắt)
-local speedOn = false
-local currentSpeed = 16
-local speedBtn = Instance.new("TextButton", tabFrames[1])
-speedBtn.Size = UDim2.new(0,200,0,40)
-speedBtn.Position = UDim2.new(0,20,0,170)
-speedBtn.Text = "🏃 Speed"
-speedBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-speedBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", speedBtn)
-
-local sliderFrame, sliderBar, sliderHandle
-speedBtn.MouseButton1Click:Connect(function()
-    speedOn = not speedOn
-    if speedOn then
-        speedBtn.Text = "🏃 Speed (ON)"
-        sliderFrame = Instance.new("Frame", tabFrames[1])
-        sliderFrame.Size = UDim2.new(0,200,0,20)
-        sliderFrame.Position = UDim2.new(0,20,0,210)
-        sliderBar = Instance.new("Frame", sliderFrame)
-        sliderBar.Size = UDim2.new(1,0,1,0)
-        sliderBar.BackgroundColor3 = Color3.fromRGB(100,100,100)
-        sliderHandle = Instance.new("Frame", sliderFrame)
-        sliderHandle.Size = UDim2.new(0,10,1,0)
-        sliderHandle.BackgroundColor3 = Color3.fromRGB(255,0,0)
-
-        local dragging=false
-        sliderHandle.InputBegan:Connect(function(input)
-            if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true end
-        end)
-        sliderHandle.InputEnded:Connect(function(input)
-            if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
-        end)
-
-        RunService.RenderStepped:Connect(function()
-            if speedOn and sliderFrame and sliderHandle and dragging then
-                local mouseX = UserInputService:GetMouseLocation().X
-                local rel = math.clamp((mouseX-sliderFrame.AbsolutePosition.X)/sliderFrame.AbsoluteSize.X,0,1)
-                sliderHandle.Position = UDim2.new(rel, -5, 0, 0)
-                currentSpeed = math.floor(16+rel*(400-16))
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                    LocalPlayer.Character.Humanoid.WalkSpeed = currentSpeed
+noclipButton.MouseButton1Click:Connect(function()
+    noclipEnabled = not noclipEnabled
+    if noclipEnabled then
+        game:GetService("RunService").Stepped:Connect(function()
+            if noclipEnabled and game.Players.LocalPlayer.Character then
+                for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
                 end
-                speedBtn.Text = "🏃 Speed: "..currentSpeed
             end
         end)
     else
-        speedBtn.Text = "🏃 Speed"
-        if sliderFrame then sliderFrame:Destroy() end
-        -- reset về mặc định khi tắt
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        -- Reset về mặc định
+        for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
         end
-        currentSpeed = 16
     end
 end)
+
+-- ⚡ Speed Control (Tab 2 hoặc Tab 3 tuỳ bạn đặt)
+do
+    local speedFrame = Instance.new("Frame", tabFrames[2]) -- nếu bạn muốn ở Tab 2
+    speedFrame.Size = UDim2.new(0,220,0,80)
+    speedFrame.BackgroundTransparency = 1
+
+    local speedLabel = Instance.new("TextLabel", speedFrame)
+    speedLabel.Size = UDim2.new(0,200,0,20)
+    speedLabel.Position = UDim2.new(0,10,0,0)
+    speedLabel.Text = "⚡ Speed"
+    speedLabel.TextColor3 = Color3.new(1,1,1)
+    speedLabel.BackgroundTransparency = 1
+
+    -- Slider
+    local speedSlider = Instance.new("TextButton", speedFrame)
+    speedSlider.Size = UDim2.new(0,200,0,30)
+    speedSlider.Position = UDim2.new(0,10,0,25)
+    speedSlider.Text = "Set Speed"
+    speedSlider.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    speedSlider.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", speedSlider)
+
+    -- OFF button
+    local speedOffBtn = Instance.new("TextButton", speedFrame)
+    speedOffBtn.Size = UDim2.new(0,200,0,30)
+    speedOffBtn.Position = UDim2.new(0,10,0,60)
+    speedOffBtn.Text = "OFF (Reset Speed)"
+    speedOffBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    speedOffBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", speedOffBtn)
+
+    local player = game.Players.LocalPlayer
+    local currentSpeed = 16 -- mặc định
+
+    -- Khi slider được bấm, bạn có thể mở GUI nhập giá trị hoặc preset
+    speedSlider.MouseButton1Click:Connect(function()
+        local newSpeed = 50 -- ví dụ, bạn có thể thay bằng giá trị lấy từ slider thực tế
+        currentSpeed = newSpeed
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.WalkSpeed = currentSpeed
+        end
+        speedSlider.Text = "Speed: "..tostring(newSpeed)
+    end)
+
+    -- OFF: reset về mặc định
+    speedOffBtn.MouseButton1Click:Connect(function()
+        currentSpeed = 16
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.WalkSpeed = currentSpeed
+        end
+        speedSlider.Text = "Set Speed"
+    end)
+
+    -- Khi nhân vật spawn lại, giữ nguyên speed hiện tại
+    player.CharacterAdded:Connect(function(char)
+        char:WaitForChild("Humanoid").WalkSpeed = currentSpeed
+    end)
+end
 
     -- 👤 ESP Player
     local espPlayerBtn = Instance.new("TextButton", tabFrames[1])
@@ -482,264 +489,69 @@ end
     end)
 end
 
--- TAB 3: Hop Server + Platform xanh dương + Xoá rung màn hình
+-- =========================
+-- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung)
+-- =========================
 do
-    -- Hop Server (giữ nguyên như trước)
-    local hopBtn = Instance.new("TextButton", tabFrames[3])
-    hopBtn.Size = UDim2.new(0,200,0,40)
-    hopBtn.Position = UDim2.new(0,20,0,20)
-    hopBtn.Text = "🔁 Hop Server"
-    hopBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    hopBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", hopBtn)
+    -- Layout tự động xếp dọc cho Tab 3
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Parent = tabFrames[3]
+    listLayout.FillDirection = Enum.FillDirection.Vertical
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Padding = UDim.new(0,10)
 
-    local PlaceId = game.PlaceId
-    local CurrentJobId = game.JobId
-    local function hopServer()
-        local success, result = pcall(function()
-            local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-            return HttpService:JSONDecode(game:HttpGet(url))
-        end)
-        if success and result and result.data then
-            local lowestCount = math.huge
-            local bestServerId = nil
-            for _, server in pairs(result.data) do
-                if server.id ~= CurrentJobId and server.playing < server.maxPlayers then
-                    if server.playing < lowestCount then
-                        lowestCount = server.playing
-                        bestServerId = server.id
-                    end
-                end
-            end
-            if bestServerId then
-                TeleportService:TeleportToPlaceInstance(PlaceId, bestServerId, LocalPlayer)
-            end
-        end
-    end
-    hopBtn.MouseButton1Click:Connect(hopServer)
-
-    -- 🟦 Platform xanh dương
-    local function spawnPlatform()
-        local hrp = safeGetCharacterHumanoidRootPart()
-        if not hrp then return end
-        local part = Instance.new("Part")
-        part.Size = Vector3.new(3,0.5,3)
-        part.Position = hrp.Position - Vector3.new(0,3,0)
-        part.Anchored = true
-        part.CanCollide = true
-        part.Transparency = 0.5
-        part.Color = Color3.fromRGB(0,0,255)
-        part.Parent = workspace
-        game:GetService("Debris"):AddItem(part,2)
-        task.delay(1.75,function()
-            spawnPlatform()
-        end)
-    end
-
-    local platformBtn = Instance.new("TextButton", tabFrames[3])
-    platformBtn.Size = UDim2.new(0,200,0,40)
-    platformBtn.Position = UDim2.new(0,20,0,70)
-    platformBtn.Text = "🟦 Spawn Platform"
-    platformBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    platformBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", platformBtn)
-    platformBtn.MouseButton1Click:Connect(spawnPlatform)
-
-    -- ❌ Xoá hiệu ứng rung màn hình
-    local clearShakeBtn = Instance.new("TextButton", tabFrames[3])
-    clearShakeBtn.Size = UDim2.new(0,200,0,40)
-    clearShakeBtn.Position = UDim2.new(0,20,0,120)
-    clearShakeBtn.Text = "❌ Xoá rung màn hình"
-    clearShakeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    clearShakeBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", clearShakeBtn)
-
-    clearShakeBtn.MouseButton1Click:Connect(function()
-        -- reset Camera về mặc định
-        Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        Camera.CameraType = Enum.CameraType.Custom
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + Camera.CFrame.LookVector)
-
-        -- xoá các hiệu ứng rung nếu có gắn vào Camera
-        for _, v in pairs(Camera:GetChildren()) do
-            if v:IsA("Tween") or v:IsA("BodyPosition") or v:IsA("BodyVelocity") then
-                v:Destroy()
-            end
-        end
-    end)
-end
-
--- ⚔️ PvP (Tab 3)
-do
-    local pvpFrame = tabFrames[3]
-
-    local pvpLabel = Instance.new("TextLabel", pvpFrame)
-    pvpLabel.Size = UDim2.new(0,200,0,40)
-    pvpLabel.Position = UDim2.new(0,20,0,20)
-    pvpLabel.Text = "⚔️ PvP"
-    pvpLabel.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    pvpLabel.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", pvpLabel)
-
-    local uis = game:GetService("UserInputService")
-    local rs = game:GetService("RunService")
     local player = game.Players.LocalPlayer
+    local TeleportService = game:GetService("TeleportService")
+    local cam = workspace.CurrentCamera
 
-    -- setup nhân vật: double jump
-    local function setupCharacter(character)
-        local humanoid = character:WaitForChild("Humanoid")
+    -- ⚔️ PvP (Teleport tới người chơi gần nhất)
+    local pvpBtn = Instance.new("TextButton", tabFrames[3])
+    pvpBtn.Size = UDim2.new(0,200,0,40)
+    pvpBtn.Text = "⚔️ PvP (Teleport gần nhất)"
+    pvpBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    pvpBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", pvpBtn)
 
-        humanoid.JumpPower = 50
-        local clicked, clickTime = false, 0
-        local window = 0.25
-
-        -- click chuột trái
-        uis.InputBegan:Connect(function(input, gp)
-            if gp then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                clicked = true
-                clickTime = tick()
-            end
-        end)
-
-        -- nhấn Space
-        uis.InputBegan:Connect(function(input, gp)
-            if gp then return end
-            if input.KeyCode == Enum.KeyCode.Space then
-                if clicked and tick() - clickTime <= window then
-                    humanoid.JumpPower = 400
-                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                    task.delay(0.25, function()
-                        if humanoid and humanoid.Parent then
-                            humanoid.JumpPower = 50
-                        end
-                    end)
-                    clicked = false
-                else
-                    humanoid.Jump = true
-                end
-            end
-        end)
-
-        -- reset click nếu quá thời gian
-        rs.Heartbeat:Connect(function()
-            if clicked and tick() - clickTime > window then
-                clicked = false
-            end
-        end)
-    end
-
-    -- teleport tới người chơi gần nhất
     local function teleportToClosest()
-        local character = player.Character
-        if not character then return end
-        local hrp = character:FindFirstChild("HumanoidRootPart")
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-
-        local closestHRP, closestDistance = nil, math.huge
-        for _, other in ipairs(game.Players:GetPlayers()) do
-            if other ~= player and other.Character then
-                local otherHRP = other.Character:FindFirstChild("HumanoidRootPart")
-                if otherHRP then
-                    local distance = (hrp.Position - otherHRP.Position).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestHRP = otherHRP
-                    end
+        local closest, dist = nil, math.huge
+        for _, plr in pairs(game.Players:GetPlayers()) do
+            if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local d = (plr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    closest = plr
                 end
             end
         end
-
-        if closestHRP then
-            hrp.CFrame = closestHRP.CFrame * CFrame.new(0, 3, 0)
+        if closest and closest.Character and closest.Character:FindFirstChild("HumanoidRootPart") then
+            hrp.CFrame = closest.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
         end
     end
 
-    -- phím G: teleport tới người chơi gần nhất
-    uis.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.KeyCode == Enum.KeyCode.G then
-            teleportToClosest()
-        end
-    end)
+    pvpBtn.MouseButton1Click:Connect(teleportToClosest)
 
-    -- setup khi nhân vật spawn
-    if player.Character then
-        setupCharacter(player.Character)
-    end
-    player.CharacterAdded:Connect(setupCharacter)
-end
-
-local function addESP(char)
-    if not char:FindFirstChild("ESPHighlight") then
-        local hl = Instance.new("Highlight")
-        hl.Name = "ESPHighlight"
-        hl.FillTransparency = 1
-        hl.OutlineColor = Color3.fromRGB(255,0,0)
-        hl.Parent = char
-    end
-end
-
-for _, plr in pairs(Players:GetPlayers()) do
-    if plr ~= LocalPlayer and plr.Character then
-        addESP(plr.Character)
-    end
-    plr.CharacterAdded:Connect(addESP)
-end
-
-Players.PlayerAdded:Connect(function(newPlr)
-    newPlr.CharacterAdded:Connect(addESP)
-end)
-
--- 🔄 Vào lại server cũ (Tab 3)
-do
+    -- 🔄 Vào lại server cũ
     local rejoinBtn = Instance.new("TextButton", tabFrames[3])
     rejoinBtn.Size = UDim2.new(0,200,0,40)
-    rejoinBtn.Position = UDim2.new(0,20,0,20)
     rejoinBtn.Text = "🔄 Vào lại server cũ"
     rejoinBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     rejoinBtn.TextColor3 = Color3.new(1,1,1)
     Instance.new("UICorner", rejoinBtn)
 
-    local TeleportService = game:GetService("TeleportService")
-    local player = game.Players.LocalPlayer
-
     rejoinBtn.MouseButton1Click:Connect(function()
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
     end)
-end
 
--- 🔄 Vào lại server cũ (Tab 3)
-do
-    local rejoinBtn = Instance.new("TextButton", tabFrames[3])
-    rejoinBtn.Size = UDim2.new(0,200,0,40)
-    rejoinBtn.Position = UDim2.new(0,20,0,20)
-    rejoinBtn.Text = "🔄 Vào lại server cũ"
-    rejoinBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    rejoinBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", rejoinBtn)
-
-    local TeleportService = game:GetService("TeleportService")
-    local player = game.Players.LocalPlayer
-
-    rejoinBtn.MouseButton1Click:Connect(function()
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
-    end)
-end
-
--- ❄️ Freeze NPC (Tab 3)
-do
+    -- ❄️ Freeze NPC
     local freezeOn = false
-
     local freezeBtn = Instance.new("TextButton", tabFrames[3])
     freezeBtn.Size = UDim2.new(0,200,0,40)
-    freezeBtn.Position = UDim2.new(0,20,0,70)
     freezeBtn.Text = "❄️ Freeze NPC OFF"
     freezeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     freezeBtn.TextColor3 = Color3.new(1,1,1)
     Instance.new("UICorner", freezeBtn)
-
-    local player = game.Players.LocalPlayer
 
     local function freezeNPCsOnce()
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -768,29 +580,21 @@ do
             freezeNPCsOnce()
         end
     end)
-end
 
--- 📷 Chặn rung màn hình (Tab 3)
-do
+    -- 📷 Chặn rung màn hình
     local blockShake = false
-
     local blockBtn = Instance.new("TextButton", tabFrames[3])
     blockBtn.Size = UDim2.new(0,200,0,40)
-    blockBtn.Position = UDim2.new(0,20,0,70)
     blockBtn.Text = "📷 Chặn rung OFF"
     blockBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     blockBtn.TextColor3 = Color3.new(1,1,1)
     Instance.new("UICorner", blockBtn)
-
-    local player = game.Players.LocalPlayer
-    local cam = workspace.CurrentCamera
 
     local function enableBlock()
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             cam.CameraSubject = player.Character.Humanoid
             cam.CameraType = Enum.CameraType.Custom
         end
-        -- chỉ chặn khi có script cố đổi CameraType
         cam:GetPropertyChangedSignal("CameraType"):Connect(function()
             if blockShake and cam.CameraType ~= Enum.CameraType.Custom then
                 cam.CameraType = Enum.CameraType.Custom
