@@ -244,12 +244,18 @@ for i = 1, 3 do
     tabLabel.MouseButton1Click:Connect(function()
         currentTab = i
         for j, frame in ipairs(tabFrames) do
-                    frame.Visible = (j == i)
-        tabBar["Tab"..j].BackgroundColor3 = (j==i) and Color3.fromRGB(100,100,100) or Color3.fromRGB(200,200,200)
-        tabBar["Tab"..j].TextColor3 = (j==i) and Color3.fromRGB(255,255,255) or Color3.fromRGB(0,0,0)
-        tabBar["Tab"..j]:FindFirstChildOfClass("Frame").Visible = (j==i)
-    end
-end)
+            frame.Visible = (j == i)
+            local tabBtn = tabBar:FindFirstChild("Tab"..j)
+            if tabBtn then
+                tabBtn.BackgroundColor3 = (j==i) and Color3.fromRGB(100,100,100) or Color3.fromRGB(200,200,200)
+                tabBtn.TextColor3 = (j==i) and Color3.fromRGB(255,255,255) or Color3.fromRGB(0,0,0)
+                local underlineFrame = tabBtn:FindFirstChildOfClass("Frame")
+                if underlineFrame then
+                    underlineFrame.Visible = (j==i)
+                end
+            end
+        end
+    end)
 end
 
 -- TAB 1: San Sea + Fly/Noclip/Speed + ESP Player
@@ -270,162 +276,138 @@ do
     end)
 
     -- ✈️ Fly với nút tăng/giảm tốc độ
-local flying = false
-local flySpeed = 50
-local flyBtn = Instance.new("TextButton", tabFrames[1])
-flyBtn.Size = UDim2.new(0,200,0,40)
-flyBtn.Position = UDim2.new(0,20,0,70)
-flyBtn.Text = "✈️ Fly"
-flyBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-flyBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", flyBtn)
+    local flying = false
+    local flySpeed = 50
+    local flyBtn = Instance.new("TextButton", tabFrames[1])
+    flyBtn.Size = UDim2.new(0,200,0,40)
+    flyBtn.Position = UDim2.new(0,20,0,70)
+    flyBtn.Text = "✈️ Fly"
+    flyBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    flyBtn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", flyBtn)
 
-local minusBtn, speedLabel, plusBtn
-flyBtn.MouseButton1Click:Connect(function()
-    flying = not flying
-    if flying then
-        flyBtn.Text = "✈️ Fly (ON)"
-        local hrp = safeGetCharacterHumanoidRootPart()
-        -- tạo BodyVelocity riêng
-        local bv = Instance.new("BodyVelocity")
-        bv.Name = "LVDGODZ_FlyBV"
-        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
-        bv.Parent = hrp
+    local minusBtn, speedLabel, plusBtn
+    local flyConn -- store RenderStepped connection so we can disconnect
+    flyBtn.MouseButton1Click:Connect(function()
+        flying = not flying
+        if flying then
+            flyBtn.Text = "✈️ Fly (ON)"
+            local hrp = safeGetCharacterHumanoidRootPart()
+            if not hrp then return end
 
-        -- loop bay
-        RunService.RenderStepped:Connect(function()
-            if flying and hrp and hrp:FindFirstChild("LVDGODZ_FlyBV") then
-                local move = Vector3.new()
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
-                hrp.LVDGODZ_FlyBV.Velocity = move.Magnitude>0 and move.Unit*flySpeed or Vector3.zero
-            end
-        end)
-
-        -- tạo nút chỉnh tốc độ
-        minusBtn = Instance.new("TextButton", tabFrames[1])
-        minusBtn.Size = UDim2.new(0,40,0,40)
-        minusBtn.Position = UDim2.new(0,230,0,70)
-        minusBtn.Text = "-"
-        speedLabel = Instance.new("TextLabel", tabFrames[1])
-        speedLabel.Size = UDim2.new(0,40,0,40)
-        speedLabel.Position = UDim2.new(0,270,0,70)
-        speedLabel.Text = tostring(flySpeed)
-        plusBtn = Instance.new("TextButton", tabFrames[1])
-        plusBtn.Size = UDim2.new(0,40,0,40)
-        plusBtn.Position = UDim2.new(0,310,0,70)
-        plusBtn.Text = "+"
-
-        minusBtn.MouseButton1Click:Connect(function()
-            flySpeed = math.max(10, flySpeed-10)
-            speedLabel.Text = tostring(flySpeed)
-        end)
-        plusBtn.MouseButton1Click:Connect(function()
-            flySpeed = flySpeed+10
-            speedLabel.Text = tostring(flySpeed)
-        end)
-    else
-        flyBtn.Text = "✈️ Fly"
-        -- xoá BodyVelocity khi tắt
-        local hrp = safeGetCharacterHumanoidRootPart()
-        if hrp then
+            -- ensure existing BV removed
             for _, v in pairs(hrp:GetChildren()) do
                 if v:IsA("BodyVelocity") and v.Name=="LVDGODZ_FlyBV" then
                     v:Destroy()
                 end
             end
-        end
-        if minusBtn then minusBtn:Destroy() end
-        if plusBtn then plusBtn:Destroy() end
-        if speedLabel then speedLabel:Destroy() end
-    end
-end)
 
-    -- 🚪 Noclip
-    local noclipEnabled = false
+            local bv = Instance.new("BodyVelocity")
+            bv.Name = "LVDGODZ_FlyBV"
+            bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+            bv.Parent = hrp
 
-noclipButton.MouseButton1Click:Connect(function()
-    noclipEnabled = not noclipEnabled
-    if noclipEnabled then
-        game:GetService("RunService").Stepped:Connect(function()
-            if noclipEnabled and game.Players.LocalPlayer.Character then
-                for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
+            -- avoid creating duplicate UI controls
+            if minusBtn and minusBtn.Parent then minusBtn:Destroy() end
+            if plusBtn and plusBtn.Parent then plusBtn:Destroy() end
+            if speedLabel and speedLabel.Parent then speedLabel:Destroy() end
+
+            -- tạo nút chỉnh tốc độ
+            minusBtn = Instance.new("TextButton", tabFrames[1])
+            minusBtn.Size = UDim2.new(0,40,0,40)
+            minusBtn.Position = UDim2.new(0,230,0,70)
+            minusBtn.Text = "-"
+            Instance.new("UICorner", minusBtn)
+
+            speedLabel = Instance.new("TextLabel", tabFrames[1])
+            speedLabel.Size = UDim2.new(0,40,0,40)
+            speedLabel.Position = UDim2.new(0,270,0,70)
+            speedLabel.Text = tostring(flySpeed)
+            speedLabel.BackgroundTransparency = 1
+            speedLabel.TextColor3 = Color3.new(1,1,1)
+
+            plusBtn = Instance.new("TextButton", tabFrames[1])
+            plusBtn.Size = UDim2.new(0,40,0,40)
+            plusBtn.Position = UDim2.new(0,310,0,70)
+            plusBtn.Text = "+"
+            Instance.new("UICorner", plusBtn)
+
+            minusBtn.MouseButton1Click:Connect(function()
+                flySpeed = math.max(10, flySpeed-10)
+                if speedLabel then speedLabel.Text = tostring(flySpeed) end
+            end)
+            plusBtn.MouseButton1Click:Connect(function()
+                flySpeed = flySpeed+10
+                if speedLabel then speedLabel.Text = tostring(flySpeed) end
+            end)
+
+            -- loop bay (store connection)
+            flyConn = RunService.RenderStepped:Connect(function()
+                if flying and hrp and hrp:FindFirstChild("LVDGODZ_FlyBV") then
+                    local move = Vector3.new()
+                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
+                    hrp.LVDGODZ_FlyBV.Velocity = move.Magnitude>0 and move.Unit*flySpeed or Vector3.zero
+                end
+            end)
+        else
+            flyBtn.Text = "✈️ Fly"
+            -- xoá BodyVelocity khi tắt
+            local hrp = safeGetCharacterHumanoidRootPart()
+            if hrp then
+                for _, v in pairs(hrp:GetChildren()) do
+                    if v:IsA("BodyVelocity") and v.Name=="LVDGODZ_FlyBV" then
+                        v:Destroy()
                     end
                 end
             end
-        end)
-    else
-        -- Reset về mặc định
-        for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
+            if minusBtn then minusBtn:Destroy() minusBtn = nil end
+            if plusBtn then plusBtn:Destroy() plusBtn = nil end
+            if speedLabel then speedLabel:Destroy() speedLabel = nil end
+            if flyConn then flyConn:Disconnect() flyConn = nil end
+        end
+    end)
+
+    -- 🚪 Noclip
+    local noclipEnabled = false
+    local noclipButton = Instance.new("TextButton", tabFrames[1])
+    noclipButton.Size = UDim2.new(0,200,0,40)
+    noclipButton.Position = UDim2.new(0,20,0,120)
+    noclipButton.Text = "🚪 Noclip"
+    noclipButton.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    noclipButton.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", noclipButton)
+
+    local noclipConn
+    noclipButton.MouseButton1Click:Connect(function()
+        noclipEnabled = not noclipEnabled
+        noclipButton.Text = noclipEnabled and "🚪 Noclip (ON)" or "🚪 Noclip"
+        if noclipEnabled then
+            -- disconnect previous connection if any to avoid stacking
+            if noclipConn then noclipConn:Disconnect() noclipConn = nil end
+            noclipConn = game:GetService("RunService").Stepped:Connect(function()
+                if noclipEnabled and game.Players.LocalPlayer.Character then
+                    for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end)
+        else
+            -- disable noclip and restore collisions
+            if noclipConn then noclipConn:Disconnect() noclipConn = nil end
+            if game.Players.LocalPlayer.Character then
+                for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
             end
         end
-    end
-end)
-
--- ⚡ Speed Control (Tab 2 hoặc Tab 3 tuỳ bạn đặt)
-do
-    local speedFrame = Instance.new("Frame", tabFrames[2]) -- nếu bạn muốn ở Tab 2
-    speedFrame.Size = UDim2.new(0,220,0,80)
-    speedFrame.BackgroundTransparency = 1
-
-    local speedLabel = Instance.new("TextLabel", speedFrame)
-    speedLabel.Size = UDim2.new(0,200,0,20)
-    speedLabel.Position = UDim2.new(0,10,0,0)
-    speedLabel.Text = "⚡ Speed"
-    speedLabel.TextColor3 = Color3.new(1,1,1)
-    speedLabel.BackgroundTransparency = 1
-
-    -- Slider
-    local speedSlider = Instance.new("TextButton", speedFrame)
-    speedSlider.Size = UDim2.new(0,200,0,30)
-    speedSlider.Position = UDim2.new(0,10,0,25)
-    speedSlider.Text = "Set Speed"
-    speedSlider.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    speedSlider.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", speedSlider)
-
-    -- OFF button
-    local speedOffBtn = Instance.new("TextButton", speedFrame)
-    speedOffBtn.Size = UDim2.new(0,200,0,30)
-    speedOffBtn.Position = UDim2.new(0,10,0,60)
-    speedOffBtn.Text = "OFF (Reset Speed)"
-    speedOffBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    speedOffBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", speedOffBtn)
-
-    local player = game.Players.LocalPlayer
-    local currentSpeed = 16 -- mặc định
-
-    -- Khi slider được bấm, bạn có thể mở GUI nhập giá trị hoặc preset
-    speedSlider.MouseButton1Click:Connect(function()
-        local newSpeed = 50 -- ví dụ, bạn có thể thay bằng giá trị lấy từ slider thực tế
-        currentSpeed = newSpeed
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = currentSpeed
-        end
-        speedSlider.Text = "Speed: "..tostring(newSpeed)
     end)
-
-    -- OFF: reset về mặc định
-    speedOffBtn.MouseButton1Click:Connect(function()
-        currentSpeed = 16
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = currentSpeed
-        end
-        speedSlider.Text = "Set Speed"
-    end)
-
-    -- Khi nhân vật spawn lại, giữ nguyên speed hiện tại
-    player.CharacterAdded:Connect(function(char)
-        char:WaitForChild("Humanoid").WalkSpeed = currentSpeed
-    end)
-end
 
     -- 👤 ESP Player
     local espPlayerBtn = Instance.new("TextButton", tabFrames[1])
@@ -446,27 +428,27 @@ end
 -- TAB 2: Nhặt trái & ESP trái cây
 do
     -- 🍒 Nhặt trái cây (tele tất cả trái về nhân vật)
-do
-    local collectBtn = Instance.new("TextButton", tabFrames[2])
-    collectBtn.Size = UDim2.new(0,200,0,40)
-    collectBtn.Position = UDim2.new(0,20,0,20)
-    collectBtn.Text = "🍒 Nhặt trái cây"
-    collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    collectBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", collectBtn)
+    do
+        local collectBtn = Instance.new("TextButton", tabFrames[2])
+        collectBtn.Size = UDim2.new(0,200,0,40)
+        collectBtn.Position = UDim2.new(0,20,0,20)
+        collectBtn.Text = "🍒 Nhặt trái cây"
+        collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        collectBtn.TextColor3 = Color3.new(1,1,1)
+        Instance.new("UICorner", collectBtn)
 
-    collectBtn.MouseButton1Click:Connect(function()
-        local hrp = safeGetCharacterHumanoidRootPart()
-        if not hrp then return end
-        for _, obj in pairs(workspace:GetDescendants()) do
-            -- chỉ tele Tool có Handle (trái cây)
-            if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
-                -- tele trái về ngay nhân vật để kẹt vào người và tự động nhặt
-                obj.Handle.CFrame = hrp.CFrame
+        collectBtn.MouseButton1Click:Connect(function()
+            local hrp = safeGetCharacterHumanoidRootPart()
+            if not hrp then return end
+            for _, obj in pairs(workspace:GetDescendants()) do
+                -- chỉ tele Tool có Handle (trái cây)
+                if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
+                    -- tele trái về ngay nhân vật để kẹt vào người và tự động nhặt
+                    obj.Handle.CFrame = hrp.CFrame
+                end
             end
-        end
-    end)
-end
+        end)
+    end
 
     -- 👁️ ESP trái cây (chỉ hiển thị)
     local espBtn = Instance.new("TextButton", tabFrames[2])
