@@ -471,6 +471,56 @@ do
     end)
 end
 
+-- GOD MOVE
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+-- Tab 2 (ví dụ, bạn đã có Window:MakeTab trước đó)
+local Tab2 = Window:MakeTab({
+    Name = "Tab 2",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+-- Biến trạng thái
+local godModeEnabled = false
+local connection
+
+-- Nút God Mode
+Tab2:AddButton({
+    Name = "God Mode",
+    Callback = function()
+        godModeEnabled = not godModeEnabled
+        if godModeEnabled then
+            connection = RunService.Heartbeat:Connect(function()
+                local character = player.Character
+                if character then
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    if humanoid then
+                        humanoid.MaxHealth = math.huge
+                        humanoid.Health = humanoid.MaxHealth
+                    end
+                end
+            end)
+            print("God Mode ON")
+        else
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+            if player.Character then
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.MaxHealth = 100
+                    humanoid.Health = 100
+                end
+            end
+            print("God Mode OFF")
+        end
+    end
+})
+
 -- =========================
 -- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung)
 -- =========================
