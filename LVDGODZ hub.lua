@@ -472,6 +472,10 @@ do
 end
 
 -- GOD MOVE
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
 -- Nút God Mode trong Tab 2
 local godModeBtn = Instance.new("TextButton", tabFrames[2])
 godModeBtn.Size = UDim2.new(0,200,0,40)
@@ -489,17 +493,28 @@ godModeBtn.MouseButton1Click:Connect(function()
     if godModeEnabled then
         godModeBtn.Text = "💀 God Mode: ON"
         godModeBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
-        connection = game:GetService("RunService").Heartbeat:Connect(function()
-            local player = game.Players.LocalPlayer
+
+        connection = RunService.Heartbeat:Connect(function()
             local character = player.Character
             if character then
                 local humanoid = character:FindFirstChildOfClass("Humanoid")
                 if humanoid then
                     humanoid.MaxHealth = math.huge
-                    humanoid.Health = humanoid.MaxHealth
+                    humanoid.Health = math.huge
                 end
             end
         end)
+
+        player.CharacterAdded:Connect(function(char)
+            local humanoid = char:WaitForChild("Humanoid")
+            humanoid.MaxHealth = math.huge
+            humanoid.Health = math.huge
+            humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+                humanoid.MaxHealth = math.huge
+                humanoid.Health = math.huge
+            end)
+        end)
+
     else
         godModeBtn.Text = "💀 God Mode: OFF"
         godModeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
@@ -507,7 +522,7 @@ godModeBtn.MouseButton1Click:Connect(function()
             connection:Disconnect()
             connection = nil
         end
-        local player = game.Players.LocalPlayer
+        -- Trả về máu bình thường
         if player.Character then
             local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
             if humanoid then
