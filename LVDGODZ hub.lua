@@ -611,7 +611,7 @@ local function gatherEnemiesToNearest(maxRange)
                 end
                 local dir = (pointA - part.Position)
                 if dir.Magnitude > 0 then
-                    bv.Velocity = dir.Unit * 100
+                    bv.Velocity = dir.Unit * 999999
                 else
                     bv.Velocity = Vector3.new(0,0,0)
                 end
