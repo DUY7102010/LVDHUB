@@ -696,6 +696,180 @@ autoFarmBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+if _G.AutoFarm then
+    warn("Script đã chạy! Không thể chạy lại.")
+    return
+end
+_G.AutoFarm = true
+_G.AutoFarmEnabled = false -- mặc định tắt
+
+-- Thông báo
+pcall(function()
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "🍇 AUTO FARM ⚔️";
+        Text = "Press K to toggle Auto Farm in Blox Fruits.";
+        Duration = 6;
+    })
+end)
+
+-- Services
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local EnemiesFolder = workspace:WaitForChild("Enemies")
+local UserInputService = game:GetService("UserInputService")
+local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
+
+-- Utility
+local function getHRP()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function isEnemyAlive(enemyPart)
+    if not enemyPart then return false end
+    local model = enemyPart.Parent
+    if model and model:FindFirstChild("Humanoid") then
+        local hum = model.Humanoid
+        if hum.Health > 0 then
+            return true
+        end
+    end
+    return false
+end
+
+local function getEnemyInRange(maxRange)
+    local hrp = getHRP()
+    if not hrp then return nil end
+    local closest, shortest = nil, maxRange
+    for _, enemy in pairs(EnemiesFolder:GetChildren()) do
+        local part = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
+        if part and part:IsA("BasePart") and isEnemyAlive(part) then
+            local d = (part.Position - hrp.Position).Magnitude
+            if d < shortest then
+                shortest = d
+                closest = part
+            end
+        end
+    end
+    return closest
+end
+
+-- Luôn cố định quái ở vị trí A
+local function fixEnemiesAtAnchor(anchorPos)
+    for _, enemy in pairs(EnemiesFolder:GetChildren()) do
+        local part = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
+        if part and part:IsA("BasePart") and isEnemyAlive(part) then
+            local bp = part:FindFirstChild("FarmBP")
+            if not bp then
+                bp = Instance.new("BodyPosition")
+                bp.Name = "FarmBP"
+                bp.MaxForce = Vector3.new(1e5,1e5,1e5)
+                bp.D = 600
+                bp.P = 2e4
+                bp.Parent = part
+            end
+            bp.Position = anchorPos -- luôn giữ quái tại vị trí A
+        end
+    end
+end
+
+-- Đánh NPC nhanh
+local function registerHitNPC(targetPart)
+    if targetPart then
+        Net:WaitForChild("RE/RegisterHit"):FireServer(targetPart, {}, "3269aee8")
+    end
+end
+
+-- Đánh tất cả player xa
+local function attackAllPlayers()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local args = {
+                [1] = player.Character.Head,
+                [2] = {},
+                [4] = "326880d6"
+            }
+            Net:WaitForChild("RE/RegisterHit"):FireServer(unpack(args))
+        end
+    end
+end
+
+-- Hàm khởi động toàn bộ luồng
+function startAutoFarm()
+    -- Auto click
+    task.spawn(function()
+        while _G.AutoFarmEnabled do
+            local enemy = getEnemyInRange(300)
+            if enemy then mouse1click() end
+            task.wait(0.01)
+        end
+    end)
+
+    -- Luồng chính
+    task.spawn(function()
+        while _G.AutoFarmEnabled do
+            local hrp = getHRP()
+            if hrp then
+                local enemy = getEnemyInRange(700)
+                if enemy then
+                    local dist = (enemy.Position - hrp.Position).Magnitude
+                    local time = dist / 500
+                    local targetPos = enemy.Position + Vector3.new(0,20,0)
+                    local tween = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
+                    tween:Play()
+                    tween.Completed:Wait()
+
+                    local bv = hrp:FindFirstChild("FarmFloatBV") or Instance.new("BodyVelocity", hrp)
+                    bv.Name = "FarmFloatBV"
+                    bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+                    bv.Velocity = Vector3.new(0,0,0)
+
+                    local anchorPos = enemy.Position
+                    while _G.AutoFarmEnabled and isEnemyAlive(enemy) do
+                        registerHitNPC(enemy)
+                        attackAllPlayers()
+                        mouse1click()
+                        task.wait(0.035)
+                        -- luôn cố định quái tại anchorPos
+                        fixEnemiesAtAnchor(anchorPos)
+                    end
+                end
+            end
+            task.wait(0.2)
+        end
+    end)
+
+    -- Luồng gom quái liên tục (giữ nguyên)
+    task.spawn(function()
+        while _G.AutoFarmEnabled do
+            local hrp = getHRP()
+            if hrp then
+                local enemy = getEnemyInRange(300)
+                if enemy then
+                    fixEnemiesAtAnchor(enemy.Position)
+                end
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+
+-- Toggle bằng phím K
+UserInputService.InputBegan:Connect(function(input,gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.K then
+        _G.AutoFarmEnabled = not _G.AutoFarmEnabled
+        if _G.AutoFarmEnabled then
+            game.StarterGui:SetCore("SendNotification",{Title="AUTO FARM";Text="Enabled";Duration=2})
+            startAutoFarm()
+        else
+            game.StarterGui:SetCore("SendNotification",{Title="AUTO FARM";Text="Disabled";Duration=2})
+        end
+    end
+end)
+
 -- =========================
 -- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung)
 -- =========================
