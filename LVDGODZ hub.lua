@@ -182,7 +182,7 @@ mainFrame.BorderColor3 = Color3.fromRGB(85, 170, 255)
 mainFrame.Visible = false
 mainFrame.Active = true
 mainFrame.ClipsDescendants = true
-mainFrame.CanvasSize = UDim2.new(0,0,0,600)
+mainFrame.CanvasSize = UDim2.new(0,0,0,0)
 mainFrame.ScrollBarThickness = 8
 Instance.new("UICorner", mainFrame)
 
@@ -241,6 +241,18 @@ for i = 1, 3 do
     tabFrame.Visible = (i == 1)
     tabFrames[i] = tabFrame
 
+    -- Add UIListLayout to each tab frame so children stack vertically
+    local layout = Instance.new("UIListLayout", tabFrame)
+    layout.Padding = UDim.new(0,8)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    -- update the scrolling frame canvas size when content changes (only when this tab visible)
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        if tabFrame.Visible then
+            local contentSize = layout.AbsoluteContentSize.Y
+            mainFrame.CanvasSize = UDim2.new(0, 0, 0, contentSize + 40) -- some padding
+        end
+    end)
+
     tabLabel.MouseButton1Click:Connect(function()
         currentTab = i
         for j, frame in ipairs(tabFrames) do
@@ -255,6 +267,11 @@ for i = 1, 3 do
                 end
             end
         end
+        -- refresh canvas size for the newly visible tab
+        local visibleLayout = tabFrames[currentTab]:FindFirstChildOfClass("UIListLayout")
+        if visibleLayout then
+            mainFrame.CanvasSize = UDim2.new(0, 0, 0, visibleLayout.AbsoluteContentSize.Y + 40)
+        end
     end)
 end
 
@@ -262,8 +279,8 @@ end
 do
     -- San Sea
     local sanSeaBtn = Instance.new("TextButton", tabFrames[1])
-    sanSeaBtn.Size = UDim2.new(0, 200, 0, 40)
-    sanSeaBtn.Position = UDim2.new(0, 20, 0, 20)
+    sanSeaBtn.Size = UDim2.new(1, -40, 0, 40)
+    sanSeaBtn.LayoutOrder = 1
     sanSeaBtn.Text = "⚙️ Bật script San Sea"
     sanSeaBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     sanSeaBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -279,14 +296,14 @@ do
     local flying = false
     local flySpeed = 50
     local flyBtn = Instance.new("TextButton", tabFrames[1])
-    flyBtn.Size = UDim2.new(0,200,0,40)
-    flyBtn.Position = UDim2.new(0,20,0,70)
+    flyBtn.Size = UDim2.new(1, -40, 0, 40)
+    flyBtn.LayoutOrder = 2
     flyBtn.Text = "✈️ Fly"
     flyBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     flyBtn.TextColor3 = Color3.new(1,1,1)
     Instance.new("UICorner", flyBtn)
 
-    local minusBtn, speedLabel, plusBtn
+    local speedFrame -- container for minus/speed/plus
     local flyConn -- store RenderStepped connection so we can disconnect
     flyBtn.MouseButton1Click:Connect(function()
         flying = not flying
@@ -308,27 +325,36 @@ do
             bv.Parent = hrp
 
             -- avoid creating duplicate UI controls
-            if minusBtn and minusBtn.Parent then minusBtn:Destroy() end
-            if plusBtn and plusBtn.Parent then plusBtn:Destroy() end
-            if speedLabel and speedLabel.Parent then speedLabel:Destroy() end
+            if speedFrame and speedFrame.Parent then speedFrame:Destroy() end
 
-            -- tạo nút chỉnh tốc độ
-            minusBtn = Instance.new("TextButton", tabFrames[1])
+            -- tạo container ngang cho nút chỉnh tốc độ
+            speedFrame = Instance.new("Frame", tabFrames[1])
+            speedFrame.Size = UDim2.new(1, -40, 0, 40)
+            speedFrame.LayoutOrder = 3
+            speedFrame.BackgroundTransparency = 1
+
+            local hLayout = Instance.new("UIListLayout", speedFrame)
+            hLayout.FillDirection = Enum.FillDirection.Horizontal
+            hLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            hLayout.Padding = UDim.new(0,8)
+
+            local minusBtn = Instance.new("TextButton", speedFrame)
             minusBtn.Size = UDim2.new(0,40,0,40)
-            minusBtn.Position = UDim2.new(0,230,0,70)
+            minusBtn.LayoutOrder = 1
             minusBtn.Text = "-"
             Instance.new("UICorner", minusBtn)
 
-            speedLabel = Instance.new("TextLabel", tabFrames[1])
-            speedLabel.Size = UDim2.new(0,40,0,40)
-            speedLabel.Position = UDim2.new(0,270,0,70)
+            local speedLabel = Instance.new("TextLabel", speedFrame)
+            speedLabel.Size = UDim2.new(0,80,0,40)
+            speedLabel.LayoutOrder = 2
             speedLabel.Text = tostring(flySpeed)
             speedLabel.BackgroundTransparency = 1
             speedLabel.TextColor3 = Color3.new(1,1,1)
+            speedLabel.TextScaled = true
 
-            plusBtn = Instance.new("TextButton", tabFrames[1])
+            local plusBtn = Instance.new("TextButton", speedFrame)
             plusBtn.Size = UDim2.new(0,40,0,40)
-            plusBtn.Position = UDim2.new(0,310,0,70)
+            plusBtn.LayoutOrder = 3
             plusBtn.Text = "+"
             Instance.new("UICorner", plusBtn)
 
@@ -363,9 +389,7 @@ do
                     end
                 end
             end
-            if minusBtn then minusBtn:Destroy() minusBtn = nil end
-            if plusBtn then plusBtn:Destroy() plusBtn = nil end
-            if speedLabel then speedLabel:Destroy() speedLabel = nil end
+            if speedFrame then speedFrame:Destroy() speedFrame = nil end
             if flyConn then flyConn:Disconnect() flyConn = nil end
         end
     end)
@@ -373,8 +397,8 @@ do
     -- 🚪 Noclip
     local noclipEnabled = false
     local noclipButton = Instance.new("TextButton", tabFrames[1])
-    noclipButton.Size = UDim2.new(0,200,0,40)
-    noclipButton.Position = UDim2.new(0,20,0,120)
+    noclipButton.Size = UDim2.new(1, -40, 0, 40)
+    noclipButton.LayoutOrder = 4
     noclipButton.Text = "🚪 Noclip"
     noclipButton.BackgroundColor3 = Color3.fromRGB(60,60,60)
     noclipButton.TextColor3 = Color3.new(1,1,1)
@@ -411,8 +435,8 @@ do
 
     -- 👤 ESP Player
     local espPlayerBtn = Instance.new("TextButton", tabFrames[1])
-    espPlayerBtn.Size = UDim2.new(0,200,0,40)
-    espPlayerBtn.Position = UDim2.new(0,20,0,240)
+    espPlayerBtn.Size = UDim2.new(1, -40, 0, 40)
+    espPlayerBtn.LayoutOrder = 5
     espPlayerBtn.Text = "👤 Bật ESP Player"
     espPlayerBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     espPlayerBtn.TextColor3 = Color3.new(1,1,1)
@@ -443,8 +467,8 @@ end
 
 -- Nút Auto Collect
 local collectBtn = Instance.new("TextButton", tabFrames[2])
-collectBtn.Size = UDim2.new(0,200,0,40)
-collectBtn.Position = UDim2.new(0,20,0,20)
+collectBtn.Size = UDim2.new(1, -40, 0, 40)
+collectBtn.LayoutOrder = 1
 collectBtn.Text = "🍒 Auto Collect: OFF"
 collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 collectBtn.TextColor3 = Color3.new(1,1,1)
@@ -474,8 +498,8 @@ end)
 
 -- 👁️ ESP trái cây (chỉ hiển thị)
 local espBtn = Instance.new("TextButton", tabFrames[2])
-espBtn.Size = UDim2.new(0,200,0,40)
-espBtn.Position = UDim2.new(0,20,0,70)
+espBtn.Size = UDim2.new(1, -40, 0, 40)
+espBtn.LayoutOrder = 2
 espBtn.Text = "👁️ Bật ESP trái cây"
 espBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 espBtn.TextColor3 = Color3.new(1,1,1)
@@ -505,8 +529,8 @@ local player = Players.LocalPlayer
 
 -- Nút God Mode trong Tab 2
 local godModeBtn = Instance.new("TextButton", tabFrames[2])
-godModeBtn.Size = UDim2.new(0,200,0,40)
-godModeBtn.Position = UDim2.new(0,20,0,240)
+godModeBtn.Size = UDim2.new(1, -40, 0, 40)
+godModeBtn.LayoutOrder = 3
 godModeBtn.Text = "💀 Bật God Mode"
 godModeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 godModeBtn.TextColor3 = Color3.new(1,1,1)
@@ -755,8 +779,8 @@ end
 
 -- Nút Auto Farm trong Tab 2
 local autoFarmBtn = Instance.new("TextButton", tabFrames[2])
-autoFarmBtn.Size = UDim2.new(0,200,0,40)
-autoFarmBtn.Position = UDim2.new(0,20,0,300)
+autoFarmBtn.Size = UDim2.new(1, -40, 0, 40)
+autoFarmBtn.LayoutOrder = 4
 autoFarmBtn.Text = "🍇 Auto Farm: OFF"
 autoFarmBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
 autoFarmBtn.TextColor3 = Color3.new(1,1,1)
@@ -781,20 +805,15 @@ end)
 -- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung)
 -- =========================
 do
-    -- Layout tự động xếp dọc cho Tab 3
-    local listLayout = Instance.new("UIListLayout")
-    listLayout.Parent = tabFrames[3]
-    listLayout.FillDirection = Enum.FillDirection.Vertical
-    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    listLayout.Padding = UDim.new(0,10)
-
+    -- Layout tự động xếp dọc cho Tab 3 (already set on creation)
     local player = game.Players.LocalPlayer
     local TeleportService = game:GetService("TeleportService")
     local cam = workspace.CurrentCamera
 
     -- ⚔️ PvP (Teleport tới người chơi gần nhất)
     local pvpBtn = Instance.new("TextButton", tabFrames[3])
-    pvpBtn.Size = UDim2.new(0,200,0,40)
+    pvpBtn.Size = UDim2.new(1, -40, 0, 40)
+    pvpBtn.LayoutOrder = 1
     pvpBtn.Text = "⚔️ PvP (Teleport gần nhất)"
     pvpBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     pvpBtn.TextColor3 = Color3.new(1,1,1)
@@ -822,7 +841,8 @@ do
 
     -- 🔄 Vào lại server cũ
     local rejoinBtn = Instance.new("TextButton", tabFrames[3])
-    rejoinBtn.Size = UDim2.new(0,200,0,40)
+    rejoinBtn.Size = UDim2.new(1, -40, 0, 40)
+    rejoinBtn.LayoutOrder = 2
     rejoinBtn.Text = "🔄 Vào lại server cũ"
     rejoinBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     rejoinBtn.TextColor3 = Color3.new(1,1,1)
@@ -835,7 +855,8 @@ do
     -- ❄️ Freeze NPC
     local freezeOn = false
     local freezeBtn = Instance.new("TextButton", tabFrames[3])
-    freezeBtn.Size = UDim2.new(0,200,0,40)
+    freezeBtn.Size = UDim2.new(1, -40, 0, 40)
+    freezeBtn.LayoutOrder = 3
     freezeBtn.Text = "❄️ Freeze NPC OFF"
     freezeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     freezeBtn.TextColor3 = Color3.new(1,1,1)
@@ -872,7 +893,8 @@ do
     -- 📷 Chặn rung màn hình
     local blockShake = false
     local blockBtn = Instance.new("TextButton", tabFrames[3])
-    blockBtn.Size = UDim2.new(0,200,0,40)
+    blockBtn.Size = UDim2.new(1, -40, 0, 40)
+    blockBtn.LayoutOrder = 4
     blockBtn.Text = "📷 Chặn rung OFF"
     blockBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     blockBtn.TextColor3 = Color3.new(1,1,1)
