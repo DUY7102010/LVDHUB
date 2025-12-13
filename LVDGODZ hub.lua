@@ -426,50 +426,77 @@ end
 
 
 -- TAB 2: Nhặt trái & ESP trái cây
-do
-    -- 🍒 Nhặt trái cây (tele tất cả trái về nhân vật)
-    do
-        local collectBtn = Instance.new("TextButton", tabFrames[2])
-        collectBtn.Size = UDim2.new(0,200,0,40)
-        collectBtn.Position = UDim2.new(0,20,0,20)
-        collectBtn.Text = "🍒 Nhặt trái cây"
-        collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-        collectBtn.TextColor3 = Color3.new(1,1,1)
-        Instance.new("UICorner", collectBtn)
+-- 🍒 Auto Collect Fruit (ON/OFF)
+local autoCollectEnabled = false
 
-        collectBtn.MouseButton1Click:Connect(function()
-            local hrp = safeGetCharacterHumanoidRootPart()
-            if not hrp then return end
+-- Hàm tele trái cây về nhân vật
+local function teleFruit(obj)
+    local hrp = safeGetCharacterHumanoidRootPart()
+    if not hrp then return end
+    if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
+        -- defer để xử lý nhẹ nhàng, không block khi nhiều trái spawn cùng lúc
+        task.defer(function()
+            obj.Handle.CFrame = hrp.CFrame
+        end)
+    end
+end
+
+-- Nút Auto Collect
+local collectBtn = Instance.new("TextButton", tabFrames[2])
+collectBtn.Size = UDim2.new(0,200,0,40)
+collectBtn.Position = UDim2.new(0,20,0,20)
+collectBtn.Text = "🍒 Auto Collect: OFF"
+collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+collectBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", collectBtn)
+
+collectBtn.MouseButton1Click:Connect(function()
+    autoCollectEnabled = not autoCollectEnabled
+    if autoCollectEnabled then
+        collectBtn.Text = "🍒 Auto Collect: ON"
+        collectBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+        game.StarterGui:SetCore("SendNotification",{Title="AUTO COLLECT";Text="Enabled";Duration=2})
+        -- gom toàn bộ trái hiện có ngay khi bật
+        local hrp = safeGetCharacterHumanoidRootPart()
+        if hrp then
             for _, obj in pairs(workspace:GetDescendants()) do
-                -- chỉ tele Tool có Handle (trái cây)
                 if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
-                    -- tele trái về ngay nhân vật để kẹt vào người và tự động nhặt
                     obj.Handle.CFrame = hrp.CFrame
                 end
             end
-        end)
-    end
-
-    -- 👁️ ESP trái cây (chỉ hiển thị)
-    local espBtn = Instance.new("TextButton", tabFrames[2])
-    espBtn.Size = UDim2.new(0,200,0,40)
-    espBtn.Position = UDim2.new(0,20,0,70)
-    espBtn.Text = "👁️ Bật ESP trái cây"
-    espBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    espBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", espBtn)
-
-    espBtn.MouseButton1Click:Connect(function()
-        for _, obj in pairs(workspace:GetChildren()) do
-            createFruitESP(obj)
         end
-    end)
+    else
+        collectBtn.Text = "🍒 Auto Collect: OFF"
+        collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        game.StarterGui:SetCore("SendNotification",{Title="AUTO COLLECT";Text="Disabled";Duration=2})
+    end
+end)
 
-    -- tự động gắn ESP cho trái mới spawn
-    workspace.DescendantAdded:Connect(function(obj)
+-- 👁️ ESP trái cây (chỉ hiển thị)
+local espBtn = Instance.new("TextButton", tabFrames[2])
+espBtn.Size = UDim2.new(0,200,0,40)
+espBtn.Position = UDim2.new(0,20,0,70)
+espBtn.Text = "👁️ Bật ESP trái cây"
+espBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+espBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", espBtn)
+
+espBtn.MouseButton1Click:Connect(function()
+    for _, obj in pairs(workspace:GetChildren()) do
         createFruitESP(obj)
-    end)
-end
+    end
+end)
+
+-- Theo dõi trái mới spawn
+workspace.DescendantAdded:Connect(function(obj)
+    -- gắn ESP như cũ
+    createFruitESP(obj)
+
+    -- nếu Auto Collect đang bật thì tele trái mới về nhân vật
+    if autoCollectEnabled then
+        teleFruit(obj)
+    end
+end)
 
 -- GOD MOVE
 local Players = game:GetService("Players")
@@ -581,8 +608,8 @@ local function getEnemyInRange(maxRange)
     return closest
 end
 
--- Gom quái: bay lên điểm B, kéo quái về điểm A
-local function gatherEnemiesToNearest(maxRange)
+-- Gom quái bằng velocity tức thời
+local function gatherEnemiesInstant(maxRange)
     local hrp = getHRP()
     if not hrp then return end
 
@@ -596,7 +623,7 @@ local function gatherEnemiesToNearest(maxRange)
     local pointB = pointA + Vector3.new(0,20,0)
     hrp.CFrame = CFrame.new(pointB)
 
-    -- Gom tất cả quái trong phạm vi về điểm A
+    -- Gom tất cả quái trong phạm vi về điểm A bằng velocity cực lớn
     for _, enemy in pairs(EnemiesFolder:GetChildren()) do
         local part = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
         if part and part:IsA("BasePart") and isEnemyAlive(part) then
@@ -611,7 +638,7 @@ local function gatherEnemiesToNearest(maxRange)
                 end
                 local dir = (pointA - part.Position)
                 if dir.Magnitude > 0 then
-                    bv.Velocity = dir.Unit * 999999
+                    bv.Velocity = dir.Unit * 9999 -- tốc độ cực lớn để tức thời
                 else
                     bv.Velocity = Vector3.new(0,0,0)
                 end
@@ -659,6 +686,29 @@ local function attackAllPlayers()
     end
 end
 
+-- Quét phạm vi: ưu tiên 150, nếu không có thì tìm xa hơn 700
+local function scanAndMove()
+    local hrp = getHRP()
+    if not hrp then return nil end
+
+    local closeEnemy = getEnemyInRange(150)
+    if closeEnemy then
+        return closeEnemy
+    else
+        local farEnemy = getEnemyInRange(700)
+        if farEnemy then
+            local dist = (farEnemy.Position - hrp.Position).Magnitude
+            local time = dist / 500
+            local targetPos = farEnemy.Position + Vector3.new(0,20,0)
+            local tween = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
+            tween:Play()
+            tween.Completed:Wait()
+            return farEnemy
+        end
+    end
+    return nil
+end
+
 -- AutoFarm chính
 function startAutoFarm()
     task.spawn(function()
@@ -673,15 +723,8 @@ function startAutoFarm()
         while _G.AutoFarmEnabled do
             local hrp = getHRP()
             if hrp then
-                local enemy = getEnemyInRange(700)
+                local enemy = scanAndMove() -- dùng quét phạm vi
                 if enemy then
-                    local dist = (enemy.Position - hrp.Position).Magnitude
-                    local time = dist / 500
-                    local targetPos = enemy.Position + Vector3.new(0,20,0)
-                    local tween = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
-                    tween:Play()
-                    tween.Completed:Wait()
-
                     local bv = hrp:FindFirstChild("FarmFloatBV") or Instance.new("BodyVelocity", hrp)
                     bv.Name = "FarmFloatBV"
                     bv.MaxForce = Vector3.new(1e5,1e5,1e5)
@@ -693,7 +736,7 @@ function startAutoFarm()
                         attackAllPlayers()
                         mouse1click()
                         task.wait(0.035)
-                        gatherEnemiesToNearest(300) -- gom quái liên tục
+                        gatherEnemiesInstant(300) -- gom quái tức thời bằng velocity
                     end
                 end
             end
@@ -704,7 +747,7 @@ function startAutoFarm()
     -- Luồng gom quái song song
     task.spawn(function()
         while _G.AutoFarmEnabled do
-            gatherEnemiesToNearest(300)
+            gatherEnemiesInstant(300)
             task.wait(0.15)
         end
     end)
@@ -733,6 +776,7 @@ autoFarmBtn.MouseButton1Click:Connect(function()
         resetFarm() -- reset khi OFF
     end
 end)
+
 -- =========================
 -- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung)
 -- =========================
