@@ -581,30 +581,71 @@ local function getEnemyInRange(maxRange)
     return closest
 end
 
-local function fixEnemiesAtAnchor(anchorPos)
+-- Gom quái: bay lên điểm B, kéo quái về điểm A
+local function gatherEnemiesToNearest(maxRange)
+    local hrp = getHRP()
+    if not hrp then return end
+
+    local nearest = getEnemyInRange(maxRange or 300)
+    if not nearest then return end
+
+    -- Điểm A: vị trí quái gần nhất
+    local pointA = nearest.Position
+
+    -- Điểm B: nhân vật bay lên trên quái 20m
+    local pointB = pointA + Vector3.new(0,20,0)
+    hrp.CFrame = CFrame.new(pointB)
+
+    -- Gom tất cả quái trong phạm vi về điểm A
     for _, enemy in pairs(EnemiesFolder:GetChildren()) do
         local part = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
         if part and part:IsA("BasePart") and isEnemyAlive(part) then
-            local bp = part:FindFirstChild("FarmBP")
-            if not bp then
-                bp = Instance.new("BodyPosition")
-                bp.Name = "FarmBP"
-                bp.MaxForce = Vector3.new(1e5,1e5,1e5)
-                bp.D = 600
-                bp.P = 2e4
-                bp.Parent = part
+            local d = (part.Position - hrp.Position).Magnitude
+            if d <= (maxRange or 300) then
+                local bv = part:FindFirstChild("FarmBV")
+                if not bv then
+                    bv = Instance.new("BodyVelocity")
+                    bv.Name = "FarmBV"
+                    bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+                    bv.Parent = part
+                end
+                local dir = (pointA - part.Position)
+                if dir.Magnitude > 0 then
+                    bv.Velocity = dir.Unit * 100
+                else
+                    bv.Velocity = Vector3.new(0,0,0)
+                end
             end
-            bp.Position = anchorPos
         end
     end
 end
 
+-- Reset khi OFF
+local function resetFarm()
+    for _, enemy in pairs(EnemiesFolder:GetChildren()) do
+        local part = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
+        if part then
+            local bv = part:FindFirstChild("FarmBV")
+            if bv then bv:Destroy() end
+            local bp = part:FindFirstChild("FarmBP")
+            if bp then bp:Destroy() end
+        end
+    end
+    local hrp = getHRP()
+    if hrp then
+        local bv = hrp:FindFirstChild("FarmFloatBV")
+        if bv then bv:Destroy() end
+    end
+end
+
+-- Đánh NPC
 local function registerHitNPC(targetPart)
     if targetPart then
         Net:WaitForChild("RE/RegisterHit"):FireServer(targetPart, {}, "3269aee8")
     end
 end
 
+-- Đánh tất cả player
 local function attackAllPlayers()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
@@ -618,6 +659,7 @@ local function attackAllPlayers()
     end
 end
 
+-- AutoFarm chính
 function startAutoFarm()
     task.spawn(function()
         while _G.AutoFarmEnabled do
@@ -651,7 +693,7 @@ function startAutoFarm()
                         attackAllPlayers()
                         mouse1click()
                         task.wait(0.035)
-                        fixEnemiesAtAnchor(anchorPos)
+                        gatherEnemiesToNearest(300) -- gom quái liên tục
                     end
                 end
             end
@@ -659,16 +701,11 @@ function startAutoFarm()
         end
     end)
 
+    -- Luồng gom quái song song
     task.spawn(function()
         while _G.AutoFarmEnabled do
-            local hrp = getHRP()
-            if hrp then
-                local enemy = getEnemyInRange(300)
-                if enemy then
-                    fixEnemiesAtAnchor(enemy.Position)
-                end
-            end
-            task.wait(0.1)
+            gatherEnemiesToNearest(300)
+            task.wait(0.15)
         end
     end)
 end
@@ -693,9 +730,9 @@ autoFarmBtn.MouseButton1Click:Connect(function()
         autoFarmBtn.Text = "🍇 Auto Farm: OFF"
         autoFarmBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
         game.StarterGui:SetCore("SendNotification",{Title="AUTO FARM";Text="Disabled";Duration=2})
+        resetFarm() -- reset khi OFF
     end
 end)
-
 -- =========================
 -- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung)
 -- =========================
