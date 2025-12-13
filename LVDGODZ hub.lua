@@ -472,54 +472,51 @@ do
 end
 
 -- GOD MOVE
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
+-- Nút God Mode trong Tab 2
+local godModeBtn = Instance.new("TextButton", tabFrames[2])
+godModeBtn.Size = UDim2.new(0,200,0,40)
+godModeBtn.Position = UDim2.new(0,20,0,240)
+godModeBtn.Text = "💀 Bật God Mode"
+godModeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+godModeBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", godModeBtn)
 
--- Tab 2 (ví dụ, bạn đã có Window:MakeTab trước đó)
-local Tab2 = Window:MakeTab({
-    Name = "Tab 2",
-    Icon = "rbxassetid://4483345998",
-    PremiumOnly = false
-})
-
--- Biến trạng thái
 local godModeEnabled = false
 local connection
 
--- Nút God Mode
-Tab2:AddButton({
-    Name = "God Mode",
-    Callback = function()
-        godModeEnabled = not godModeEnabled
-        if godModeEnabled then
-            connection = RunService.Heartbeat:Connect(function()
-                local character = player.Character
-                if character then
-                    local humanoid = character:FindFirstChildOfClass("Humanoid")
-                    if humanoid then
-                        humanoid.MaxHealth = math.huge
-                        humanoid.Health = humanoid.MaxHealth
-                    end
-                end
-            end)
-            print("God Mode ON")
-        else
-            if connection then
-                connection:Disconnect()
-                connection = nil
-            end
-            if player.Character then
-                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+godModeBtn.MouseButton1Click:Connect(function()
+    godModeEnabled = not godModeEnabled
+    if godModeEnabled then
+        godModeBtn.Text = "💀 God Mode: ON"
+        godModeBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+        connection = game:GetService("RunService").Heartbeat:Connect(function()
+            local player = game.Players.LocalPlayer
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
                 if humanoid then
-                    humanoid.MaxHealth = 100
-                    humanoid.Health = 100
+                    humanoid.MaxHealth = math.huge
+                    humanoid.Health = humanoid.MaxHealth
                 end
             end
-            print("God Mode OFF")
+        end)
+    else
+        godModeBtn.Text = "💀 God Mode: OFF"
+        godModeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        local player = game.Players.LocalPlayer
+        if player.Character then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.MaxHealth = 100
+                humanoid.Health = 100
+            end
         end
     end
-})
+end)
 
 -- =========================
 -- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung)
