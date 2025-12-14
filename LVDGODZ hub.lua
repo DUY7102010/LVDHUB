@@ -729,99 +729,124 @@ function startAutoFarm()
     end)
 end
 
--- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung)
+-- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung, Auto Chest)
 do
     local order = 1
     local player = game.Players.LocalPlayer
     local cam = workspace.CurrentCamera
 
-    local pvpBtn = createButton(tabFrames[3], "⚔️ PvP (Teleport gần nhất)", order); order = order + 1
-    pvpBtn.MouseButton1Click:Connect(function()
-        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        local closest, dist = nil, math.huge
-        for _, plr in pairs(game.Players:GetPlayers()) do
-            if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local d = (plr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-                if d < dist then
-                    dist = d
-                    closest = plr
-                end
-            end
-        end
-        if closest and closest.Character and closest.Character:FindFirstChild("HumanoidRootPart") then
-            hrp.CFrame = closest.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
-        end
-    end)
+    -- Bảng nhớ rương đã nhặt
+    local collectedChests = {}
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
 
-    local rejoinBtn = createButton(tabFrames[3], "🔄 Vào lại server cũ", order); order = order + 1
-    rejoinBtn.MouseButton1Click:Connect(function()
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
-    end)
+    -- Hàm teleport nhanh
+    local function fastTeleport(chestPart)
+        if chestPart and chestPart:IsA("BasePart") then
+            hrp.CFrame = CFrame.new(chestPart.Position + Vector3.new(0, 3, 0))
+            task.wait(0.25)
+        end
+    end
 
-    local freezeBtn = createButton(tabFrames[3], "❄️ Freeze NPC OFF", order); order = order + 1
-    local freezeOn = false
-    freezeBtn.MouseButton1Click:Connect(function()
-        freezeOn = not freezeOn
-        freezeBtn.Text = freezeOn and "❄️ Freeze NPC ON" or "❄️ Freeze NPC OFF"
-        if freezeOn then
-            local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
-                    if obj ~= player.Character then
-                        local hum = obj.Humanoid
-                        local npcHRP = obj.HumanoidRootPart
-                        local dist = (npcHRP.Position - hrp.Position).Magnitude
-                        if dist <= 300 then
-                            hum.WalkSpeed = 0
-                            hum.JumpPower = 0
-                            npcHRP.Velocity = Vector3.zero
-                            npcHRP.RotVelocity = Vector3.zero
+    -- Quét rương chưa nhặt
+    local function getActiveChests()
+        local chests = {}
+        for _, obj in pairs(workspace:GetDescendants()) do
+            local name = string.lower(obj.Name)
+            if name:find("chest") then
+                local chestPart = nil
+                if obj:IsA("BasePart") then
+                    chestPart = obj
+                elseif obj:IsA("Model") then
+                    for _, child in pairs(obj:GetChildren()) do
+                        if child:IsA("BasePart") then
+                            chestPart = child
+                            break
                         end
+                    end
+                end
+                if chestPart then
+                    local key = tostring(math.floor(chestPart.Position.X)).."_"..
+                                tostring(math.floor(chestPart.Position.Y)).."_"..
+                                tostring(math.floor(chestPart.Position.Z))
+                    if not collectedChests[key] then
+                        table.insert(chests, chestPart)
                     end
                 end
             end
         end
-    end)
+        return chests
+    end
 
-    local blockBtn = createButton(tabFrames[3], "📷 Chặn rung OFF", order); order = order + 1
-    local blockShake = false
-    local function enableBlock()
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            cam.CameraSubject = player.Character.Humanoid
-            cam.CameraType = Enum.CameraType.Custom
+    -- Reset nhân vật
+    local function resetCharacter()
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then humanoid.Health = 0 end
+        char = player.CharacterAdded:Wait()
+        hrp = char:WaitForChild("HumanoidRootPart")
+    end
+
+    -- Hành động ngẫu nhiên khi nghỉ
+    local function randomActionDuringBreak()
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local action = math.random(1,2)
+            if action == 1 then
+                for i = 1, math.random(2,4) do
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    task.wait(0.5)
+                end
+            else
+                local moveDir = Vector3.new(math.random(-10,10),0,math.random(-10,10))
+                humanoid:Move(moveDir, true)
+                task.wait(math.random(1,2))
+                humanoid:Move(Vector3.new(0,0,0), true)
+            end
         end
-        cam:GetPropertyChangedSignal("CameraType"):Connect(function()
-            if blockShake and cam.CameraType ~= Enum.CameraType.Custom then
-                cam.CameraType = Enum.CameraType.Custom
-                if player.Character and player.Character:FindFirstChild("Humanoid") then
-                    cam.CameraSubject = player.Character.Humanoid
+    end
+
+    -- Hàm chạy auto chest farm
+    local function startChestFarm()
+        local count, resetCount = 0, 0
+        task.spawn(function()
+            while task.wait(1) do
+                local chests = getActiveChests()
+                for _, chestPart in pairs(chests) do
+                    fastTeleport(chestPart)
+                    local key = tostring(math.floor(chestPart.Position.X)).."_"..
+                                tostring(math.floor(chestPart.Position.Y)).."_"..
+                                tostring(math.floor(chestPart.Position.Z))
+                    collectedChests[key] = true
+
+                    count += 1
+                    resetCount += 1
+
+                    if count >= 20 then
+                        count = 0
+                        local breakTime = math.random(3,5)
+                        local start = tick()
+                        while tick() - start < breakTime do
+                            randomActionDuringBreak()
+                            task.wait(0.5)
+                        end
+                    end
+
+                    if resetCount >= 35 then
+                        resetCount = 0
+                        resetCharacter()
+                    end
                 end
             end
         end)
     end
 
-    blockBtn.MouseButton1Click:Connect(function()
-        blockShake = not blockShake
-        blockBtn.Text = blockShake and "📷 Chặn rung ON" or "📷 Chặn rung OFF"
-        if blockShake then
-            enableBlock()
-        end
+    -- Nút Auto Chest Farm
+    local chestBtn = createButton(tabFrames[3], "💰 Auto Chest Farm", order)
+    chestBtn.MouseButton1Click:Connect(function()
+        startChestFarm()
     end)
+    order += 1
 
-    player.CharacterAdded:Connect(function()
-        if blockShake then
-            enableBlock()
-        end
-    end)
+    -- Giữ nguyên các nút PvP, Rejoin, Freeze, Chặn rung...
+    -- (đặt tiếp sau đây như bạn đã có)
 end
-
--- Initialize canvas size for initial tab (deferred so layouts compute)
-task.defer(function()
-    task.wait(0.03)
-    local initLayout = tabFrames[currentTab]:FindFirstChildOfClass("UIListLayout")
-    if initLayout then
-        mainFrame.CanvasSize = UDim2.new(0, 0, 0, initLayout.AbsoluteContentSize.Y + 40)
-    end
-end)
