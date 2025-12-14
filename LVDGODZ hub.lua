@@ -735,10 +735,40 @@ do
     local player = game.Players.LocalPlayer
     local cam = workspace.CurrentCamera
 
+    -- Gắn UIListLayout cho Tab 3 giống Tab 1/Tab 2
+    local layout = Instance.new("UIListLayout", tabFrames[3])
+    layout.Padding = UDim.new(0, 8)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        if tabFrames[3].Visible then
+            mainFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 40)
+        end
+    end)
+
     -- ⚔️ PvP
     local pvpBtn = createButton(tabFrames[3], "⚔️ PvP (Teleport gần nhất)", order)
     pvpBtn.MouseButton1Click:Connect(function()
-        -- gọi hàm teleport PvP của bạn ở đây
+        local char = player.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local closestHRP, closestDistance = nil, math.huge
+        for _, other in ipairs(game.Players:GetPlayers()) do
+            if other ~= player and other.Character then
+                local otherHRP = other.Character:FindFirstChild("HumanoidRootPart")
+                if otherHRP then
+                    local distance = (hrp.Position - otherHRP.Position).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestHRP = otherHRP
+                    end
+                end
+            end
+        end
+        if closestHRP then
+            hrp.CFrame = closestHRP.CFrame * CFrame.new(0, 3, 0)
+        end
     end)
     order += 1
 
@@ -781,7 +811,102 @@ do
     -- 💰 Auto Chest Farm
     local chestBtn = createButton(tabFrames[3], "💰 Auto Chest Farm", order)
     chestBtn.MouseButton1Click:Connect(function()
-        -- gọi hàm startChestFarm() bạn viết ở đây
+        local collectedChests = {}
+        local char = player.Character or player.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+
+        local function fastTeleport(chestPart)
+            if chestPart and chestPart:IsA("BasePart") then
+                hrp.CFrame = CFrame.new(chestPart.Position + Vector3.new(0, 3, 0))
+                task.wait(0.25)
+            end
+        end
+
+        local function getActiveChests()
+            local chests = {}
+            for _, obj in pairs(workspace:GetDescendants()) do
+                local name = string.lower(obj.Name)
+                if name:find("chest") then
+                    local chestPart = nil
+                    if obj:IsA("BasePart") then
+                        chestPart = obj
+                    elseif obj:IsA("Model") then
+                        for _, child in pairs(obj:GetChildren()) do
+                            if child:IsA("BasePart") then
+                                chestPart = child
+                                break
+                            end
+                        end
+                    end
+                    if chestPart then
+                        local key = tostring(math.floor(chestPart.Position.X)).."_"..
+                                    tostring(math.floor(chestPart.Position.Y)).."_"..
+                                    tostring(math.floor(chestPart.Position.Z))
+                        if not collectedChests[key] then
+                            table.insert(chests, chestPart)
+                        end
+                    end
+                end
+            end
+            return chests
+        end
+
+        local function resetCharacter()
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then humanoid.Health = 0 end
+            char = player.CharacterAdded:Wait()
+            hrp = char:WaitForChild("HumanoidRootPart")
+        end
+
+        local function randomActionDuringBreak()
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                local action = math.random(1,2)
+                if action == 1 then
+                    for i = 1, math.random(2,4) do
+                        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                        task.wait(0.5)
+                    end
+                else
+                    local moveDir = Vector3.new(math.random(-10,10),0,math.random(-10,10))
+                    humanoid:Move(moveDir, true)
+                    task.wait(math.random(1,2))
+                    humanoid:Move(Vector3.new(0,0,0), true)
+                end
+            end
+        end
+
+        task.spawn(function()
+            local count, resetCount = 0, 0
+            while task.wait(1) do
+                local chests = getActiveChests()
+                for _, chestPart in pairs(chests) do
+                    fastTeleport(chestPart)
+                    local key = tostring(math.floor(chestPart.Position.X)).."_"..
+                                tostring(math.floor(chestPart.Position.Y)).."_"..
+                                tostring(math.floor(chestPart.Position.Z))
+                    collectedChests[key] = true
+
+                    count += 1
+                    resetCount += 1
+
+                    if count >= 20 then
+                        count = 0
+                        local breakTime = math.random(3,5)
+                        local start = tick()
+                        while tick() - start < breakTime do
+                            randomActionDuringBreak()
+                            task.wait(0.5)
+                        end
+                    end
+
+                    if resetCount >= 35 then
+                        resetCount = 0
+                        resetCharacter()
+                    end
+                end
+            end
+        end)
     end)
     order += 1
 end
