@@ -140,8 +140,8 @@ local function createPlayerESP(plr)
     local label = Instance.new("TextLabel", billboard)
     label.Size = UDim2.new(1, 0, 1, 0)
     label.BackgroundTransparency = 1
-    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-    label.Text = plr.Name .. " (" .. math.floor(dist) .. "m) HP:" .. math.floor(hum.Health)
+    local dist = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position) and (LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude or 0
+    label.Text = plr.Name .. " (" .. math.floor(dist) .. "m) HP:" .. math.floor(hum and hum.Health or 0)
     label.TextColor3 = Color3.fromRGB(0, 255, 0)
     label.Font = Enum.Font.GothamBold
     label.TextScaled = true
@@ -241,15 +241,13 @@ for i = 1, 3 do
     tabFrame.Visible = (i == 1)
     tabFrames[i] = tabFrame
 
-    -- Add UIListLayout to each tab frame so children stack vertically
+    -- ensure layout exists for each tab so children stack vertically
     local layout = Instance.new("UIListLayout", tabFrame)
-    layout.Padding = UDim.new(0,8)
+    layout.Padding = UDim.new(0, 8)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
-    -- update the scrolling frame canvas size when content changes (only when this tab visible)
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         if tabFrame.Visible then
-            local contentSize = layout.AbsoluteContentSize.Y
-            mainFrame.CanvasSize = UDim2.new(0, 0, 0, contentSize + 40) -- some padding
+            mainFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 40)
         end
     end)
 
@@ -267,24 +265,35 @@ for i = 1, 3 do
                 end
             end
         end
-        -- refresh canvas size for the newly visible tab
-        local visibleLayout = tabFrames[currentTab]:FindFirstChildOfClass("UIListLayout")
-        if visibleLayout then
-            mainFrame.CanvasSize = UDim2.new(0, 0, 0, visibleLayout.AbsoluteContentSize.Y + 40)
-        end
+        -- update canvas for new visible tab (defer to allow layout to compute)
+        task.defer(function()
+            task.wait(0.02)
+            local visibleLayout = tabFrames[currentTab]:FindFirstChildOfClass("UIListLayout")
+            if visibleLayout then
+                mainFrame.CanvasSize = UDim2.new(0, 0, 0, visibleLayout.AbsoluteContentSize.Y + 40)
+            end
+        end)
     end)
+end
+
+-- Helper to create standard full-width button
+local function createButton(parent, text, layoutOrder)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(1, -40, 0, 40)
+    btn.LayoutOrder = layoutOrder
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", btn)
+    return btn
 end
 
 -- TAB 1: San Sea + Fly/Noclip/Speed + ESP Player
 do
-    -- San Sea
-    local sanSeaBtn = Instance.new("TextButton", tabFrames[1])
-    sanSeaBtn.Size = UDim2.new(1, -40, 0, 40)
-    sanSeaBtn.LayoutOrder = 1
-    sanSeaBtn.Text = "⚙️ Bật script San Sea"
-    sanSeaBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    sanSeaBtn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", sanSeaBtn)
+    local order = 1
+
+    local sanSeaBtn = createButton(tabFrames[1], "⚙️ Bật script San Sea", order); order = order + 1
     sanSeaBtn.MouseButton1Click:Connect(function()
         local ok, err = pcall(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/DUY7102010/san-sea/refs/heads/main/san-sea.lua"))()
@@ -295,13 +304,7 @@ do
     -- ✈️ Fly với nút tăng/giảm tốc độ
     local flying = false
     local flySpeed = 50
-    local flyBtn = Instance.new("TextButton", tabFrames[1])
-    flyBtn.Size = UDim2.new(1, -40, 0, 40)
-    flyBtn.LayoutOrder = 2
-    flyBtn.Text = "✈️ Fly"
-    flyBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    flyBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", flyBtn)
+    local flyBtn = createButton(tabFrames[1], "✈️ Fly", order); order = order + 1
 
     local speedFrame -- container for minus/speed/plus
     local flyConn -- store RenderStepped connection so we can disconnect
@@ -330,7 +333,7 @@ do
             -- tạo container ngang cho nút chỉnh tốc độ
             speedFrame = Instance.new("Frame", tabFrames[1])
             speedFrame.Size = UDim2.new(1, -40, 0, 40)
-            speedFrame.LayoutOrder = 3
+            speedFrame.LayoutOrder = order; order = order + 1
             speedFrame.BackgroundTransparency = 1
 
             local hLayout = Instance.new("UIListLayout", speedFrame)
@@ -396,24 +399,17 @@ do
 
     -- 🚪 Noclip
     local noclipEnabled = false
-    local noclipButton = Instance.new("TextButton", tabFrames[1])
-    noclipButton.Size = UDim2.new(1, -40, 0, 40)
-    noclipButton.LayoutOrder = 4
-    noclipButton.Text = "🚪 Noclip"
-    noclipButton.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    noclipButton.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", noclipButton)
+    local noclipButton = createButton(tabFrames[1], "🚪 Noclip", order); order = order + 1
 
     local noclipConn
     noclipButton.MouseButton1Click:Connect(function()
         noclipEnabled = not noclipEnabled
         noclipButton.Text = noclipEnabled and "🚪 Noclip (ON)" or "🚪 Noclip"
         if noclipEnabled then
-            -- disconnect previous connection if any to avoid stacking
             if noclipConn then noclipConn:Disconnect() noclipConn = nil end
-            noclipConn = game:GetService("RunService").Stepped:Connect(function()
-                if noclipEnabled and game.Players.LocalPlayer.Character then
-                    for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+            noclipConn = RunService.Stepped:Connect(function()
+                if noclipEnabled and LocalPlayer.Character then
+                    for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
                         if part:IsA("BasePart") then
                             part.CanCollide = false
                         end
@@ -421,10 +417,9 @@ do
                 end
             end)
         else
-            -- disable noclip and restore collisions
             if noclipConn then noclipConn:Disconnect() noclipConn = nil end
-            if game.Players.LocalPlayer.Character then
-                for _, part in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+            if LocalPlayer.Character then
+                for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = true
                     end
@@ -434,13 +429,7 @@ do
     end)
 
     -- 👤 ESP Player
-    local espPlayerBtn = Instance.new("TextButton", tabFrames[1])
-    espPlayerBtn.Size = UDim2.new(1, -40, 0, 40)
-    espPlayerBtn.LayoutOrder = 5
-    espPlayerBtn.Text = "👤 Bật ESP Player"
-    espPlayerBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    espPlayerBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", espPlayerBtn)
+    local espPlayerBtn = createButton(tabFrames[1], "👤 Bật ESP Player", order); order = order + 1
     espPlayerBtn.MouseButton1Click:Connect(function()
         for _, plr in pairs(Players:GetPlayers()) do
             createPlayerESP(plr)
@@ -458,132 +447,112 @@ local function teleFruit(obj)
     local hrp = safeGetCharacterHumanoidRootPart()
     if not hrp then return end
     if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
-        -- defer để xử lý nhẹ nhàng, không block khi nhiều trái spawn cùng lúc
         task.defer(function()
             obj.Handle.CFrame = hrp.CFrame
         end)
     end
 end
 
--- Nút Auto Collect
-local collectBtn = Instance.new("TextButton", tabFrames[2])
-collectBtn.Size = UDim2.new(1, -40, 0, 40)
-collectBtn.LayoutOrder = 1
-collectBtn.Text = "🍒 Auto Collect: OFF"
-collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-collectBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", collectBtn)
-
-collectBtn.MouseButton1Click:Connect(function()
-    autoCollectEnabled = not autoCollectEnabled
-    if autoCollectEnabled then
-        collectBtn.Text = "🍒 Auto Collect: ON"
-        collectBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
-        game.StarterGui:SetCore("SendNotification",{Title="AUTO COLLECT";Text="Enabled";Duration=2})
-        -- gom toàn bộ trái hiện có ngay khi bật
-        local hrp = safeGetCharacterHumanoidRootPart()
-        if hrp then
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
-                    obj.Handle.CFrame = hrp.CFrame
+do
+    local order = 1
+    local collectBtn = createButton(tabFrames[2], "🍒 Auto Collect: OFF", order); order = order + 1
+    collectBtn.MouseButton1Click:Connect(function()
+        autoCollectEnabled = not autoCollectEnabled
+        if autoCollectEnabled then
+            collectBtn.Text = "🍒 Auto Collect: ON"
+            collectBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+            game.StarterGui:SetCore("SendNotification",{Title="AUTO COLLECT";Text="Enabled";Duration=2})
+            local hrp = safeGetCharacterHumanoidRootPart()
+            if hrp then
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if obj:IsA("Tool") and obj:FindFirstChild("Handle") then
+                        obj.Handle.CFrame = hrp.CFrame
+                    end
                 end
             end
+        else
+            collectBtn.Text = "🍒 Auto Collect: OFF"
+            collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+            game.StarterGui:SetCore("SendNotification",{Title="AUTO COLLECT";Text="Disabled";Duration=2})
         end
-    else
-        collectBtn.Text = "🍒 Auto Collect: OFF"
-        collectBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-        game.StarterGui:SetCore("SendNotification",{Title="AUTO COLLECT";Text="Disabled";Duration=2})
-    end
-end)
+    end)
 
--- 👁️ ESP trái cây (chỉ hiển thị)
-local espBtn = Instance.new("TextButton", tabFrames[2])
-espBtn.Size = UDim2.new(1, -40, 0, 40)
-espBtn.LayoutOrder = 2
-espBtn.Text = "👁️ Bật ESP trái cây"
-espBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-espBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", espBtn)
+    local espBtn = createButton(tabFrames[2], "👁️ Bật ESP trái cây", order); order = order + 1
+    espBtn.MouseButton1Click:Connect(function()
+        for _, obj in pairs(workspace:GetChildren()) do
+            createFruitESP(obj)
+        end
+    end)
 
-espBtn.MouseButton1Click:Connect(function()
-    for _, obj in pairs(workspace:GetChildren()) do
-        createFruitESP(obj)
-    end
-end)
+    -- Nút God Mode
+    local godModeBtn = createButton(tabFrames[2], "💀 Bật God Mode", order); order = order + 1
+    local godModeEnabled = false
+    local connection
 
--- Theo dõi trái mới spawn
-workspace.DescendantAdded:Connect(function(obj)
-    -- gắn ESP như cũ
-    createFruitESP(obj)
+    godModeBtn.MouseButton1Click:Connect(function()
+        godModeEnabled = not godModeEnabled
+        if godModeEnabled then
+            godModeBtn.Text = "💀 God Mode: ON"
+            godModeBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
 
-    -- nếu Auto Collect đang bật thì tele trái mới về nhân vật
-    if autoCollectEnabled then
-        teleFruit(obj)
-    end
-end)
-
--- GOD MOVE
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
-
--- Nút God Mode trong Tab 2
-local godModeBtn = Instance.new("TextButton", tabFrames[2])
-godModeBtn.Size = UDim2.new(1, -40, 0, 40)
-godModeBtn.LayoutOrder = 3
-godModeBtn.Text = "💀 Bật God Mode"
-godModeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-godModeBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", godModeBtn)
-
-local godModeEnabled = false
-local connection
-
-godModeBtn.MouseButton1Click:Connect(function()
-    godModeEnabled = not godModeEnabled
-    if godModeEnabled then
-        godModeBtn.Text = "💀 God Mode: ON"
-        godModeBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
-
-        connection = RunService.Heartbeat:Connect(function()
-            local character = player.Character
-            if character then
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid.MaxHealth = math.huge
-                    humanoid.Health = math.huge
+            connection = RunService.Heartbeat:Connect(function()
+                local character = LocalPlayer.Character
+                if character then
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    if humanoid then
+                        humanoid.MaxHealth = math.huge
+                        humanoid.Health = math.huge
+                    end
                 end
-            end
-        end)
+            end)
 
-        player.CharacterAdded:Connect(function(char)
-            local humanoid = char:WaitForChild("Humanoid")
-            humanoid.MaxHealth = math.huge
-            humanoid.Health = math.huge
-            humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+            LocalPlayer.CharacterAdded:Connect(function(char)
+                local humanoid = char:WaitForChild("Humanoid")
                 humanoid.MaxHealth = math.huge
                 humanoid.Health = math.huge
+                humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+                    humanoid.MaxHealth = math.huge
+                    humanoid.Health = math.huge
+                end)
             end)
-        end)
-
-    else
-        godModeBtn.Text = "💀 God Mode: OFF"
-        godModeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-        if connection then
-            connection:Disconnect()
-            connection = nil
-        end
-        -- Trả về máu bình thường
-        if player.Character then
-            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.MaxHealth = 100
-                humanoid.Health = 100
+        else
+            godModeBtn.Text = "💀 God Mode: OFF"
+            godModeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+            if LocalPlayer.Character then
+                local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.MaxHealth = 100
+                    humanoid.Health = 100
+                end
             end
         end
-    end
-end)
+    end)
 
+    -- AutoFarm button
+    local autoFarmBtn = createButton(tabFrames[2], "🍇 Auto Farm: OFF", order); order = order + 1
+    autoFarmBtn.MouseButton1Click:Connect(function()
+        _G.AutoFarmEnabled = not _G.AutoFarmEnabled
+        if _G.AutoFarmEnabled then
+            autoFarmBtn.Text = "🍇 Auto Farm: ON"
+            autoFarmBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+            game.StarterGui:SetCore("SendNotification",{Title="AUTO FARM";Text="Enabled";Duration=2})
+            startAutoFarm()
+        else
+            autoFarmBtn.Text = "🍇 Auto Farm: OFF"
+            autoFarmBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+            game.StarterGui:SetCore("SendNotification",{Title="AUTO FARM";Text="Disabled";Duration=2})
+            resetFarm()
+        end
+    end)
+end
+
+-- =========================
+-- Core farming logic (unchanged)
+-- =========================
 if _G.AutoFarm then
     warn("Script đã chạy! Không thể chạy lại.")
     return
@@ -591,15 +560,10 @@ end
 _G.AutoFarm = true
 _G.AutoFarmEnabled = false -- mặc định tắt
 
--- Services
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EnemiesFolder = workspace:WaitForChild("Enemies")
 local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
 
--- Utility
 local function getHRP()
     local char = LocalPlayer.Character
     return char and char:FindFirstChild("HumanoidRootPart")
@@ -632,7 +596,6 @@ local function getEnemyInRange(maxRange)
     return closest
 end
 
--- Gom quái bằng velocity tức thời
 local function gatherEnemiesInstant(maxRange)
     local hrp = getHRP()
     if not hrp then return end
@@ -640,14 +603,10 @@ local function gatherEnemiesInstant(maxRange)
     local nearest = getEnemyInRange(maxRange or 300)
     if not nearest then return end
 
-    -- Điểm A: vị trí quái gần nhất
     local pointA = nearest.Position
-
-    -- Điểm B: nhân vật bay lên trên quái 20m
     local pointB = pointA + Vector3.new(0,20,0)
     hrp.CFrame = CFrame.new(pointB)
 
-    -- Gom tất cả quái trong phạm vi về điểm A bằng velocity cực lớn
     for _, enemy in pairs(EnemiesFolder:GetChildren()) do
         local part = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
         if part and part:IsA("BasePart") and isEnemyAlive(part) then
@@ -662,7 +621,7 @@ local function gatherEnemiesInstant(maxRange)
                 end
                 local dir = (pointA - part.Position)
                 if dir.Magnitude > 0 then
-                    bv.Velocity = dir.Unit * 9999 -- tốc độ cực lớn để tức thời
+                    bv.Velocity = dir.Unit * 9999
                 else
                     bv.Velocity = Vector3.new(0,0,0)
                 end
@@ -671,7 +630,6 @@ local function gatherEnemiesInstant(maxRange)
     end
 end
 
--- Reset khi OFF
 local function resetFarm()
     for _, enemy in pairs(EnemiesFolder:GetChildren()) do
         local part = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("UpperTorso") or enemy:FindFirstChild("Head")
@@ -689,14 +647,12 @@ local function resetFarm()
     end
 end
 
--- Đánh NPC
 local function registerHitNPC(targetPart)
     if targetPart then
         Net:WaitForChild("RE/RegisterHit"):FireServer(targetPart, {}, "3269aee8")
     end
 end
 
--- Đánh tất cả player
 local function attackAllPlayers()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
@@ -710,7 +666,6 @@ local function attackAllPlayers()
     end
 end
 
--- Quét phạm vi: ưu tiên 150, nếu không có thì tìm xa hơn 700
 local function scanAndMove()
     local hrp = getHRP()
     if not hrp then return nil end
@@ -733,7 +688,6 @@ local function scanAndMove()
     return nil
 end
 
--- AutoFarm chính
 function startAutoFarm()
     task.spawn(function()
         while _G.AutoFarmEnabled do
@@ -747,20 +701,19 @@ function startAutoFarm()
         while _G.AutoFarmEnabled do
             local hrp = getHRP()
             if hrp then
-                local enemy = scanAndMove() -- dùng quét phạm vi
+                local enemy = scanAndMove()
                 if enemy then
                     local bv = hrp:FindFirstChild("FarmFloatBV") or Instance.new("BodyVelocity", hrp)
                     bv.Name = "FarmFloatBV"
                     bv.MaxForce = Vector3.new(1e5,1e5,1e5)
                     bv.Velocity = Vector3.new(0,0,0)
 
-                    local anchorPos = enemy.Position
                     while _G.AutoFarmEnabled and isEnemyAlive(enemy) do
                         registerHitNPC(enemy)
                         attackAllPlayers()
                         mouse1click()
                         task.wait(0.035)
-                        gatherEnemiesInstant(300) -- gom quái tức thời bằng velocity
+                        gatherEnemiesInstant(300)
                     end
                 end
             end
@@ -768,7 +721,6 @@ function startAutoFarm()
         end
     end)
 
-    -- Luồng gom quái song song
     task.spawn(function()
         while _G.AutoFarmEnabled do
             gatherEnemiesInstant(300)
@@ -777,49 +729,14 @@ function startAutoFarm()
     end)
 end
 
--- Nút Auto Farm trong Tab 2
-local autoFarmBtn = Instance.new("TextButton", tabFrames[2])
-autoFarmBtn.Size = UDim2.new(1, -40, 0, 40)
-autoFarmBtn.LayoutOrder = 4
-autoFarmBtn.Text = "🍇 Auto Farm: OFF"
-autoFarmBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-autoFarmBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", autoFarmBtn)
-
-autoFarmBtn.MouseButton1Click:Connect(function()
-    _G.AutoFarmEnabled = not _G.AutoFarmEnabled
-    if _G.AutoFarmEnabled then
-        autoFarmBtn.Text = "🍇 Auto Farm: ON"
-        autoFarmBtn.BackgroundColor3 = Color3.fromRGB(0,170,0)
-        game.StarterGui:SetCore("SendNotification",{Title="AUTO FARM";Text="Enabled";Duration=2})
-        startAutoFarm()
-    else
-        autoFarmBtn.Text = "🍇 Auto Farm: OFF"
-        autoFarmBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-        game.StarterGui:SetCore("SendNotification",{Title="AUTO FARM";Text="Disabled";Duration=2})
-        resetFarm() -- reset khi OFF
-    end
-end)
-
--- =========================
 -- Tab 3: Các chức năng bổ sung (PvP, Rejoin, Freeze, Chặn rung)
--- =========================
 do
-    -- Layout tự động xếp dọc cho Tab 3 (already set on creation)
+    local order = 1
     local player = game.Players.LocalPlayer
-    local TeleportService = game:GetService("TeleportService")
     local cam = workspace.CurrentCamera
 
-    -- ⚔️ PvP (Teleport tới người chơi gần nhất)
-    local pvpBtn = Instance.new("TextButton", tabFrames[3])
-    pvpBtn.Size = UDim2.new(1, -40, 0, 40)
-    pvpBtn.LayoutOrder = 1
-    pvpBtn.Text = "⚔️ PvP (Teleport gần nhất)"
-    pvpBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    pvpBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", pvpBtn)
-
-    local function teleportToClosest()
+    local pvpBtn = createButton(tabFrames[3], "⚔️ PvP (Teleport gần nhất)", order); order = order + 1
+    pvpBtn.MouseButton1Click:Connect(function()
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
         local closest, dist = nil, math.huge
@@ -835,71 +752,41 @@ do
         if closest and closest.Character and closest.Character:FindFirstChild("HumanoidRootPart") then
             hrp.CFrame = closest.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
         end
-    end
+    end)
 
-    pvpBtn.MouseButton1Click:Connect(teleportToClosest)
-
-    -- 🔄 Vào lại server cũ
-    local rejoinBtn = Instance.new("TextButton", tabFrames[3])
-    rejoinBtn.Size = UDim2.new(1, -40, 0, 40)
-    rejoinBtn.LayoutOrder = 2
-    rejoinBtn.Text = "🔄 Vào lại server cũ"
-    rejoinBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    rejoinBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", rejoinBtn)
-
+    local rejoinBtn = createButton(tabFrames[3], "🔄 Vào lại server cũ", order); order = order + 1
     rejoinBtn.MouseButton1Click:Connect(function()
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
     end)
 
-    -- ❄️ Freeze NPC
+    local freezeBtn = createButton(tabFrames[3], "❄️ Freeze NPC OFF", order); order = order + 1
     local freezeOn = false
-    local freezeBtn = Instance.new("TextButton", tabFrames[3])
-    freezeBtn.Size = UDim2.new(1, -40, 0, 40)
-    freezeBtn.LayoutOrder = 3
-    freezeBtn.Text = "❄️ Freeze NPC OFF"
-    freezeBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    freezeBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", freezeBtn)
-
-    local function freezeNPCsOnce()
-        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
-                if obj ~= player.Character then
-                    local hum = obj.Humanoid
-                    local npcHRP = obj.HumanoidRootPart
-                    local dist = (npcHRP.Position - hrp.Position).Magnitude
-                    if dist <= 300 then
-                        hum.WalkSpeed = 0
-                        hum.JumpPower = 0
-                        npcHRP.Velocity = Vector3.zero
-                        npcHRP.RotVelocity = Vector3.zero
-                    end
-                end
-            end
-        end
-    end
-
     freezeBtn.MouseButton1Click:Connect(function()
         freezeOn = not freezeOn
         freezeBtn.Text = freezeOn and "❄️ Freeze NPC ON" or "❄️ Freeze NPC OFF"
         if freezeOn then
-            freezeNPCsOnce()
+            local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
+                    if obj ~= player.Character then
+                        local hum = obj.Humanoid
+                        local npcHRP = obj.HumanoidRootPart
+                        local dist = (npcHRP.Position - hrp.Position).Magnitude
+                        if dist <= 300 then
+                            hum.WalkSpeed = 0
+                            hum.JumpPower = 0
+                            npcHRP.Velocity = Vector3.zero
+                            npcHRP.RotVelocity = Vector3.zero
+                        end
+                    end
+                end
+            end
         end
     end)
 
-    -- 📷 Chặn rung màn hình
+    local blockBtn = createButton(tabFrames[3], "📷 Chặn rung OFF", order); order = order + 1
     local blockShake = false
-    local blockBtn = Instance.new("TextButton", tabFrames[3])
-    blockBtn.Size = UDim2.new(1, -40, 0, 40)
-    blockBtn.LayoutOrder = 4
-    blockBtn.Text = "📷 Chặn rung OFF"
-    blockBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    blockBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", blockBtn)
-
     local function enableBlock()
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             cam.CameraSubject = player.Character.Humanoid
@@ -929,3 +816,12 @@ do
         end
     end)
 end
+
+-- Initialize canvas size for initial tab (deferred so layouts compute)
+task.defer(function()
+    task.wait(0.03)
+    local initLayout = tabFrames[currentTab]:FindFirstChildOfClass("UIListLayout")
+    if initLayout then
+        mainFrame.CanvasSize = UDim2.new(0, 0, 0, initLayout.AbsoluteContentSize.Y + 40)
+    end
+end)
