@@ -735,118 +735,53 @@ do
     local player = game.Players.LocalPlayer
     local cam = workspace.CurrentCamera
 
-    -- Bảng nhớ rương đã nhặt
-    local collectedChests = {}
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
-
-    -- Hàm teleport nhanh
-    local function fastTeleport(chestPart)
-        if chestPart and chestPart:IsA("BasePart") then
-            hrp.CFrame = CFrame.new(chestPart.Position + Vector3.new(0, 3, 0))
-            task.wait(0.25)
-        end
-    end
-
-    -- Quét rương chưa nhặt
-    local function getActiveChests()
-        local chests = {}
-        for _, obj in pairs(workspace:GetDescendants()) do
-            local name = string.lower(obj.Name)
-            if name:find("chest") then
-                local chestPart = nil
-                if obj:IsA("BasePart") then
-                    chestPart = obj
-                elseif obj:IsA("Model") then
-                    for _, child in pairs(obj:GetChildren()) do
-                        if child:IsA("BasePart") then
-                            chestPart = child
-                            break
-                        end
-                    end
-                end
-                if chestPart then
-                    local key = tostring(math.floor(chestPart.Position.X)).."_"..
-                                tostring(math.floor(chestPart.Position.Y)).."_"..
-                                tostring(math.floor(chestPart.Position.Z))
-                    if not collectedChests[key] then
-                        table.insert(chests, chestPart)
-                    end
-                end
-            end
-        end
-        return chests
-    end
-
-    -- Reset nhân vật
-    local function resetCharacter()
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then humanoid.Health = 0 end
-        char = player.CharacterAdded:Wait()
-        hrp = char:WaitForChild("HumanoidRootPart")
-    end
-
-    -- Hành động ngẫu nhiên khi nghỉ
-    local function randomActionDuringBreak()
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            local action = math.random(1,2)
-            if action == 1 then
-                for i = 1, math.random(2,4) do
-                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                    task.wait(0.5)
-                end
-            else
-                local moveDir = Vector3.new(math.random(-10,10),0,math.random(-10,10))
-                humanoid:Move(moveDir, true)
-                task.wait(math.random(1,2))
-                humanoid:Move(Vector3.new(0,0,0), true)
-            end
-        end
-    end
-
-    -- Hàm chạy auto chest farm
-    local function startChestFarm()
-        local count, resetCount = 0, 0
-        task.spawn(function()
-            while task.wait(1) do
-                local chests = getActiveChests()
-                for _, chestPart in pairs(chests) do
-                    fastTeleport(chestPart)
-                    local key = tostring(math.floor(chestPart.Position.X)).."_"..
-                                tostring(math.floor(chestPart.Position.Y)).."_"..
-                                tostring(math.floor(chestPart.Position.Z))
-                    collectedChests[key] = true
-
-                    count += 1
-                    resetCount += 1
-
-                    if count >= 20 then
-                        count = 0
-                        local breakTime = math.random(3,5)
-                        local start = tick()
-                        while tick() - start < breakTime do
-                            randomActionDuringBreak()
-                            task.wait(0.5)
-                        end
-                    end
-
-                    if resetCount >= 35 then
-                        resetCount = 0
-                        resetCharacter()
-                    end
-                end
-            end
-        end)
-    end
-
-    -- Nút Auto Chest Farm
-    local chestBtn = createButton(tabFrames[3], "💰 Auto Chest Farm", order)
-    chestBtn.MouseButton1Click:Connect(function()
-        startChestFarm()
+    -- ⚔️ PvP
+    local pvpBtn = createButton(tabFrames[3], "⚔️ PvP (Teleport gần nhất)", order)
+    pvpBtn.MouseButton1Click:Connect(function()
+        -- gọi hàm teleport PvP của bạn ở đây
     end)
     order += 1
 
-    -- Giữ nguyên các nút PvP, Rejoin, Freeze, Chặn rung...
-    -- (đặt tiếp sau đây như bạn đã có)
+    -- 🔄 Rejoin
+    local rejoinBtn = createButton(tabFrames[3], "🔄 Vào lại server cũ", order)
+    rejoinBtn.MouseButton1Click:Connect(function()
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+    end)
+    order += 1
+
+    -- ❄️ Freeze NPC
+    local freezeBtn = createButton(tabFrames[3], "❄️ Freeze NPC OFF", order)
+    local freezeOn = false
+    freezeBtn.MouseButton1Click:Connect(function()
+        freezeOn = not freezeOn
+        freezeBtn.Text = freezeOn and "❄️ Freeze NPC ON" or "❄️ Freeze NPC OFF"
+        for _, npc in pairs(workspace:GetChildren()) do
+            if npc:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(npc) then
+                npc.Humanoid.WalkSpeed = freezeOn and 0 or 16
+            end
+        end
+    end)
+    order += 1
+
+    -- 📷 Chặn rung
+    local blockBtn = createButton(tabFrames[3], "📷 Chặn rung OFF", order)
+    local blockOn = false
+    blockBtn.MouseButton1Click:Connect(function()
+        blockOn = not blockOn
+        blockBtn.Text = blockOn and "📷 Chặn rung ON" or "📷 Chặn rung OFF"
+        if blockOn then
+            cam.CameraSubject = player.Character:FindFirstChild("Humanoid")
+            cam.CameraType = Enum.CameraType.Custom
+        else
+            cam.CameraType = Enum.CameraType.Custom
+        end
+    end)
+    order += 1
+
+    -- 💰 Auto Chest Farm
+    local chestBtn = createButton(tabFrames[3], "💰 Auto Chest Farm", order)
+    chestBtn.MouseButton1Click:Connect(function()
+        -- gọi hàm startChestFarm() bạn viết ở đây
+    end)
+    order += 1
 end
